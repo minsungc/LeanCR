@@ -1,0 +1,6 @@
+Week of 2/15:
+I've been working through Thm Proving in Lean, although we're still stuck in the "defining things properly" phase.
+
+I'm sort of stuck on how to define a graph so that it works best in the long run. 
+We currently have graph defined via a binary relation, but I'm not sure if that will be the best definition of a graph to use in the long run.
+I've created a new file where I'm trying to redefine everything using sets. The main advantage that this will have is that when we're building a retract we can easily define the output graph (just the vertex set minus the corner).
