@@ -8,7 +8,7 @@ We define reflexive graphs as a reflexive symmetric relation on a vertex type 'V
 open finset
 
 structure refl_graph (V : Type) :=
-(adj : V → V → Prop) /-Is this the adjacency relation? Vertex-> Vertex-> -/
+(adj : V → V → Prop) 
 (sym : symmetric adj . obviously)
 (selfloop : reflexive adj . obviously)
 
@@ -21,8 +21,6 @@ def complete_refl_graph (V: Type) : refl_graph V :=
 structure graph_hom {V W : Type} (G: refl_graph V) (H: refl_graph W) :=
 (to_fun : V → W)
 (mapEdges: ∀ v w, G.adj v w → H.adj (to_fun v) (to_fun w))
-
-#check graph_hom
 
 structure cr_game_init :=
 (V : Type)
@@ -39,6 +37,7 @@ structure cr_game :=
 (I: cr_game_init)
 (cop_strat: vector I.V (I.num_cops+1)  → vector I.V (I.num_cops))
 (robber_strat: vector I.V (I.num_cops+1) → I.V)
+
 
 section CR_graphs
 
@@ -57,5 +56,7 @@ A vtx w is a corner iff there exists some vertex v such that the neighbors of w 
 -/
 def corner_vtx (w: V) (S: set V) : Prop :=
   (∃ v ∈ S, closed_neighbor_set w ⊆ closed_neighbor_set v)
+
+def retract (v: V) (w: V) (G: refl_graph V) := sorry
 
 end CR_graphs
