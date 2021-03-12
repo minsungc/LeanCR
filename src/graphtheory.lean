@@ -23,9 +23,33 @@ def complete_refl_graph (V: Type) : refl_graph V :=
 
 
 /-Need to define graph homomorphism. Not defined yet-/
-structure graph_hom {V: Type} {W: Type} (G  : refl_graph V) (H: refl_graph W) :=
+structure graph_hom {V W: Type} (G  : refl_graph V) (H: refl_graph W) :=
 (to_fun : V → W)
 (mapEdges: ∀ v w, G.adj v w → H.adj (to_fun v) (to_fun w))
+
+def graph_hom_comp {U V W : Type} {G: refl_graph U} {H: refl_graph V} {I: refl_graph W} 
+  (f: graph_hom G H) (g: graph_hom H I) : graph_hom G I :=
+{
+  to_fun := g.to_fun ∘ f.to_fun ,
+  mapEdges := 
+  begin
+    intros u v,
+    intro h,
+    have adj_H : H.adj (f.to_fun u) (f.to_fun v),
+      exact f.mapEdges u v h,
+    exact g.mapEdges (f.to_fun u) (f.to_fun v) adj_H,
+  end 
+}
+
+def trivial_hom {V:Type} (G: refl_graph V) : graph_hom G G :=
+{
+  to_fun := λ x, x,
+  mapEdges :=
+  begin
+    intros u v h, 
+    exact h,
+  end
+}
 
 structure cr_game_init (V: Type) [fintype V]:=
 (G: refl_graph V)
@@ -34,7 +58,7 @@ structure cr_game_init (V: Type) [fintype V]:=
 (cops_start : vector V num_cops)
 (start_ok : ∀ i : fin num_cops, vector.nth cops_start i ≠ robber_start)
 
-#check list.tail
+#check list.
 /-
 Set up a cops and robber's game
 -/
@@ -45,6 +69,10 @@ structure cr_game (V: Type) [fintype V]:=
 (robber_strat: vector V (I.num_cops)× V → V)
 (robber_legal: ∀ v P, I.G.adj v (robber_strat (P,v)))
 (list_of_moves: list (vector V (I.num_cops)× V))
+(list_is_valid: list (vector V (I.num_cops)× V) → bool
+  | [] := true
+  | [a] := true
+  | (b::(c::L)) := (cop_strat b, robber_strat b)=c) ∧ list_is_valid(c::L))
 
 section CR_graphs
 
@@ -61,25 +89,34 @@ A vtx w is a corner iff there exists some vertex v such that the neighbors of w 
 -/
 def corner_vtx (w: V) (S: set V) : Prop :=
   (∃ v ∈ S, closed_neighbor_set w ⊆ closed_neighbor_set v)
-#check G.sym
 
-lemma edge_symm (u v : V) : G.adj u v →  G.adj v u := λ x, G.sym x
-
-def rm_graph (c: V) (v: V) (H: refl_graph V) : refl_graph ({v:V//v ≠ c}) :=
+lemma edge_symm (u v : V) : G.adj u v ↔  G.adj v u := ⟨λ x, G.sym x, λ y, G.sym y⟩
+ 
+def rm_graph (c: V) (H: refl_graph V) : refl_graph {v:V//v ≠ c} :=
 { adj := λ a b, H.adj a b, 
-  sym := λ a b h, edge_symm a b , 
-  selfloop := λ a, ,
+  sym :=  λ a b h, H.sym h
+  /- begin
+   intros a b,
+   intro h,
+   apply H.sym,
+   apply h,
+  end-/
+  ,
+  selfloop := 
+  begin
+    intro a, 
+    apply H.selfloop,
+  end  
 }
 
- /-
 structure retract (c:V) (v:V) (H: refl_graph V):=
 (f: graph_hom H (rm_graph c H))
-(is_retract: f.to_fun c = v)
+(is_retract:  ↑(f.to_fun c) = v)
 
 def cop_win_graph (CR: cr_game):= (CR.I.num_cops=1) ∧ CR.cops_will_win
 
 def dismantlable_graph := sorry
 
 theorem cw_iff_dismantlable := sorry 
--/
+
 end CR_graphs
