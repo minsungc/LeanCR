@@ -22,6 +22,16 @@ def complete_refl_graph (V: Type) : refl_graph V :=
   selfloop := λ u, trivial }
 
 
+def empty_graph : refl_graph empty :=
+/-complete_refl_graph empty-/
+{
+  adj := λ u v, true,
+  sym := λ u v h, trivial,
+  selfloop := λ u, trivial
+}
+
+def singleton_graph :refl_graph unit := complete_refl_graph unit
+
 /-Need to define graph homomorphism. Not defined yet-/
 structure graph_hom {V W: Type} (G  : refl_graph V) (H: refl_graph W) :=
 (to_fun : V → W)
@@ -58,10 +68,10 @@ structure cr_game_init (V: Type) [fintype V]:=
 (cops_start : vector V num_cops)
 (start_ok : ∀ i : fin num_cops, vector.nth cops_start i ≠ robber_start)
 
-#check list.
 /-
 Set up a cops and robber's game
 -/
+
 structure cr_game (V: Type) [fintype V]:=
 (I: cr_game_init V)
 (cop_strat: vector V (I.num_cops)× V  → vector V (I.num_cops))
