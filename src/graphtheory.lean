@@ -78,11 +78,7 @@ structure cr_game (V: Type) [fintype V]:=
 (cop_legal: ∀ i v P, I.G.adj (vector.nth P i) (vector.nth (cop_strat (P,v)) i))
 (robber_strat: vector V (I.num_cops)× V → V)
 (robber_legal: ∀ v P, I.G.adj v (robber_strat (P,v)))
-(list_of_moves: list (vector V (I.num_cops)× V))
-(list_is_valid: list (vector V (I.num_cops)× V) → bool
-  | [] := true
-  | [a] := true
-  | (b::(c::L)) := (cop_strat b, robber_strat b)=c) ∧ list_is_valid(c::L))
+
 
 section CR_graphs
 
@@ -99,6 +95,9 @@ A vtx w is a corner iff there exists some vertex v such that the neighbors of w 
 -/
 def corner_vtx (w: V) (S: set V) : Prop :=
   (∃ v ∈ S, closed_neighbor_set w ⊆ closed_neighbor_set v)
+
+def has_corner (G: refl_graph V) : Prop :=
+  (∃ w , corner_vtx w (neighbor_set w) )
 
 lemma edge_symm (u v : V) : G.adj u v ↔  G.adj v u := ⟨λ x, G.sym x, λ y, G.sym y⟩
  
@@ -120,12 +119,12 @@ def rm_graph (c: V) (H: refl_graph V) : refl_graph {v:V//v ≠ c} :=
 }
 
 structure retract (c:V) (v:V) (H: refl_graph V):=
-(f: graph_hom H (rm_graph c H))
-(is_retract:  ↑(f.to_fun c) = v)
+(f: graph_hom H (rm_graph c H)) 
+(is_retract:  ↑(f.to_fun c) = v )
 
-def cop_win_graph (CR: cr_game):= (CR.I.num_cops=1) ∧ CR.cops_will_win
+def cop_win_graph [fintype V] (CR: cr_game V):= CR.I.num_cops=1 
 
-def dismantlable_graph := sorry
+
 
 theorem cw_iff_dismantlable := sorry 
 
