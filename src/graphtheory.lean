@@ -2,6 +2,8 @@ import data.fintype.basic
 import data.sym2
 import data.list
 
+
+
 /-
 Reflexive Graphs:
 We define reflexive graphs as a reflexive symmetric relation on a vertex type 'V'.
@@ -14,7 +16,7 @@ structure refl_graph (V: Type):=
 (selfloop : reflexive adj . obviously)
 
 
-#check refl_graph
+#check refl_graph.sym
 
 def complete_refl_graph (V: Type) : refl_graph V :=
 { adj := λ u v, true,
@@ -28,6 +30,28 @@ def empty_graph : refl_graph empty :=
   adj := λ u v, true,
   sym := λ u v h, trivial,
   selfloop := λ u, trivial
+}
+
+def cat_prod_graph {V W: Type} (G: refl_graph V) (H: refl_graph W) : refl_graph (V × W) :=
+{
+  adj := λ u v, (G.adj u.1 v.1) ∧ (H.adj u.2 v.2),
+  sym :=
+  begin
+    intros u v,
+    intros h,
+/-QUESTION: If we flip lines 43 and 44 we get error. Why?-/
+    cases h with Gedge Hedge,
+    split,
+    exact G.sym Gedge,
+    exact H.sym Hedge,
+  end,
+  selfloop:=
+  begin
+    intro x,
+    split,
+    exact G.selfloop x.1,
+    exact H.selfloop x.2,
+  end
 }
 
 def singleton_graph :refl_graph unit := complete_refl_graph unit
@@ -61,24 +85,51 @@ def trivial_hom {V:Type} (G: refl_graph V) : graph_hom G G :=
   end
 }
 
-structure cr_game_init (V: Type) [fintype V]:=
-(G: refl_graph V)
+structure graph_iso {V W: Type} (G  : refl_graph V) (H: refl_graph W) :=
+(F: graph_hom G H)
+(bij: function.bijective F.to_fun)
+
+/-
+Set up a cops and robber's game on a graph
+-/
+structure cr_game_init {V: Type} [fintype V] (G: refl_graph V):=
 (num_cops : nat)
 (robber_start : V)
 (cops_start : vector V num_cops)
 (start_ok : ∀ i : fin num_cops, vector.nth cops_start i ≠ robber_start)
 
-/-
-Set up a cops and robber's game
--/
-
-structure cr_game (V: Type) [fintype V]:=
-(I: cr_game_init V)
+structure cr_game {V: Type} [fintype V] (G: refl_graph V):=
+(I: cr_game_init G)
 (cop_strat: vector V (I.num_cops)× V  → vector V (I.num_cops))
-(cop_legal: ∀ i v P, I.G.adj (vector.nth P i) (vector.nth (cop_strat (P,v)) i))
+(cop_legal: ∀ i v P, G.adj (vector.nth P i) (vector.nth (cop_strat (P,v)) i))
 (robber_strat: vector V (I.num_cops)× V → V)
-(robber_legal: ∀ v P, I.G.adj v (robber_strat (P,v)))
+(robber_legal: ∀ v P, G.adj v (robber_strat (P,v)))
 
+/-
+Trying to define what it means for a cop/robber to win 
+-/
+def cycle {V: Type} [fintype V] {G: refl_graph V} (CR : cr_game G) : vector V (CR.I.num_cops)× V → vector V (CR.I.num_cops)× V := 
+ λ x, (CR.cop_strat x, CR.robber_strat (CR.cop_strat x, x.2))
+
+def iter :  ℕ → (Type → Type) → (Type → Type) 
+| 0 f := id
+| 1 f := f 
+| (n+1) f := f ∘ (iter n f) 
+
+def cops_win {V: Type} [fintype V] [decidable_eq V] {G: refl_graph V} (CR : cr_game G) : Prop :=  
+  ∃ n ∈ ℕ, ∃ m ≤ CR.I.num_cops, 
+    vector.nth (iter n (cycle CR) (CR.I.cops_start, CR.I.robber_start)).1 m 
+    = (iter n (cycle CR) (CR.I.cops_start, CR.I.robber_start)).2
+ 
+def robbers_win {V: Type} [fintype V] [decidable_eq V] {G: refl_graph V} (CR : cr_game G) : Prop := 
+  ¬ cops_win CR
+
+/-
+Defining cop number
+-/
+def cop_number {V: Type} [fintype V] (G: refl_graph V) := sorry
+
+def cop_win_graph {V: Type} [fintype V] (G: refl_graph V): Prop := cop_number G = 1
 
 section CR_graphs
 
@@ -122,10 +173,6 @@ structure retract (c:V) (v:V) (H: refl_graph V):=
 (f: graph_hom H (rm_graph c H)) 
 (is_retract:  ↑(f.to_fun c) = v )
 
-def cop_win_graph [fintype V] (CR: cr_game V):= CR.I.num_cops=1 
 
-
-
-theorem cw_iff_dismantlable := sorry 
 
 end CR_graphs
