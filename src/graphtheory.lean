@@ -166,7 +166,7 @@ Defining cop number
 -/
 #check Inf
 def cop_number {V: Type} [fintype V] [decidable_eq V] [has_Inf ℕ] (G: refl_graph V) := 
-  Inf {n : ℕ | ∀ CR: cr_game G, CR.I.num_cops = n → cops_win CR}
+  Inf {n : ℕ | ∃ CR: cr_game G, CR.I.num_cops = n → cops_win CR}
 
 def cop_win_graph {V: Type} [fintype V] [decidable_eq V] [has_Inf ℕ] (G: refl_graph V): Prop := cop_number G = 1
 
@@ -192,10 +192,14 @@ def has_corner (G: refl_graph V) : Prop :=
 /-Question: Why is univ defined as a finset-/
 #check univ
 
+#check some
 def is_corner (v: V) (G: refl_graph V) : Prop := (has_corner G) ∧ corner_vtx v 
+def find_corner (G: refl_graph V) : option V := if ∃ v, is_corner v G then some v else none
+
 /-TODO: This theorem. It uses the "second to last" move of the cop, which might be a little hard to encode-/
-theorem cwg_has_corner (G: refl_graph V): cop_win_graph G → has_corner G := 
+theorem cwg_has_corner [decidable_eq V] [has_Inf ℕ] (G: refl_graph V): cop_win_graph G → has_corner G := 
 begin
+  intro h,
   sorry,
 end
 
@@ -215,6 +219,11 @@ structure retract (c:V) (v:V) (H: refl_graph V):=
 (f: graph_hom H (rm_graph c H)) 
 (is_retract:  ↑(f.to_fun c) = v )
 
-def dismantlable_graph (G: refl_graph V) := (G ≅ singleton_graph) ∨ (
+def dismantle (G: refl_graph V) : list V → Prop
+| [] := G ≅ singleton_graph 
+| (a::L) := (is_corner a G) ∧ dismantle L
+
+/-TODO: Define this properly-/
+def dismantlable_graph (G: refl_graph V) := (G ≅ singleton_graph) ∨ (∃ L, dismantle G L)
 
 end CR_graphs
