@@ -86,8 +86,45 @@ def trivial_hom {V:Type} (G: refl_graph V) : graph_hom G G :=
 }
 
 structure graph_iso {V W: Type} (G  : refl_graph V) (H: refl_graph W) :=
-(F: graph_hom G H)
-(bij: function.bijective F.to_fun)
+(to_fun : V → W)
+(bij: function.bijective to_fun)
+(mapEdges: ∀ v w, G.adj v w ↔ H.adj (to_fun v) (to_fun w))
+
+def equivgraph {V W: Type} (G  : refl_graph V) (H: refl_graph W)  : Prop := ∃ a, a = graph_iso G H
+
+notation G `≅` H  := equivgraph G H
+
+def identity_iso {V: Type} (G: refl_graph V) : graph_iso G G:=
+{
+  to_fun:= λ x,x,
+  bij:= 
+    begin
+      unfold function.bijective,
+      split, 
+      {
+        intros x y,
+        intros h,
+        apply h,
+      },
+      {
+        intro x,
+        use x,
+      },
+    end,
+  mapEdges:=
+    begin
+      intros v w,
+      split,
+      { intro h, exact h},
+      { intro h, exact h}
+    end
+}
+def trivial_iso : graph_iso empty_graph empty_graph := identity_iso empty_graph
+
+lemma isos_are_comm {V W: Type} {G  : refl_graph V} {H: refl_graph W} : cat_prod_graph G H ≅ cat_prod_graph H G :=
+begin
+  /-TODO-/
+end
 
 /-
 Set up a cops and robber's game on a graph
@@ -127,13 +164,15 @@ def robbers_win {V: Type} [fintype V] [decidable_eq V] {G: refl_graph V} (CR : c
 /-
 Defining cop number
 -/
-def cop_number {V: Type} [fintype V] (G: refl_graph V) := sorry
+#check Inf
+def cop_number {V: Type} [fintype V] [decidable_eq V] [has_Inf ℕ] (G: refl_graph V) := 
+  Inf {n : ℕ | ∀ CR: cr_game G, CR.I.num_cops = n → cops_win CR}
 
-def cop_win_graph {V: Type} [fintype V] (G: refl_graph V): Prop := cop_number G = 1
+def cop_win_graph {V: Type} [fintype V] [decidable_eq V] [has_Inf ℕ] (G: refl_graph V): Prop := cop_number G = 1
 
 section CR_graphs
 
-parameters {V W: Type} (G : refl_graph V)
+parameters {V W: Type}[fintype V] (G : refl_graph V)
 
 /-The definition of neighbor set was stolen from mathlib. Closed neighbor set is used to define corners, which is a central concept-/
 def neighbor_set (v : V) : set V := set_of (G.adj v)
@@ -144,24 +183,27 @@ def closed_neighbor_set (v : V) : set V := (neighbor_set v) ∪ {v}
 Corner vertices, an important concept in Cops and Robbers
 A vtx w is a corner iff there exists some vertex v such that the neighbors of w is a subset of the neighbors of v
 -/
-def corner_vtx (w: V) (S: set V) : Prop :=
-  (∃ v ∈ S, closed_neighbor_set w ⊆ closed_neighbor_set v)
+def corner_vtx (w: V)  : Prop :=
+  (∃ v , closed_neighbor_set w ⊆ closed_neighbor_set v)
 
 def has_corner (G: refl_graph V) : Prop :=
-  (∃ w , corner_vtx w (neighbor_set w) )
+  (∃ w , corner_vtx w)
+
+/-Question: Why is univ defined as a finset-/
+#check univ
+
+def is_corner (v: V) (G: refl_graph V) : Prop := (has_corner G) ∧ corner_vtx v 
+/-TODO: This theorem. It uses the "second to last" move of the cop, which might be a little hard to encode-/
+theorem cwg_has_corner (G: refl_graph V): cop_win_graph G → has_corner G := 
+begin
+  sorry,
+end
 
 lemma edge_symm (u v : V) : G.adj u v ↔  G.adj v u := ⟨λ x, G.sym x, λ y, G.sym y⟩
  
 def rm_graph (c: V) (H: refl_graph V) : refl_graph {v:V//v ≠ c} :=
 { adj := λ a b, H.adj a b, 
-  sym :=  λ a b h, H.sym h
-  /- begin
-   intros a b,
-   intro h,
-   apply H.sym,
-   apply h,
-  end-/
-  ,
+  sym :=  λ a b h, H.sym h,
   selfloop := 
   begin
     intro a, 
@@ -173,6 +215,6 @@ structure retract (c:V) (v:V) (H: refl_graph V):=
 (f: graph_hom H (rm_graph c H)) 
 (is_retract:  ↑(f.to_fun c) = v )
 
-
+def dismantlable_graph (G: refl_graph V) := (G ≅ singleton_graph) ∨ (
 
 end CR_graphs
