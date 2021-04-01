@@ -126,37 +126,49 @@ begin
   /-TODO-/
 end
 
+variable n: ℕ
 /-
 Set up a cops and robber's game on a graph
 -/
-structure cr_game_init {V: Type} [fintype V] (G: refl_graph V):=
-(num_cops : nat)
-(robber_start : V)
-(cops_start : vector V num_cops)
-(start_ok : ∀ i : fin num_cops, vector.nth cops_start i ≠ robber_start)
-
-structure cr_game {V: Type} [fintype V] (G: refl_graph V):=
-(I: cr_game_init G)
-(cop_strat: vector V (I.num_cops)× V  → vector V (I.num_cops))
+structure cr_game {V: Type} [fintype V] (G: refl_graph V) (n : fin (fintype.card V+1)):=
+(cop_init:  vector V n)
+(robber_init: vector V n → V)
+(cop_strat: vector V n × V  → vector V n)
 (cop_legal: ∀ i v P, G.adj (vector.nth P i) (vector.nth (cop_strat (P,v)) i))
-(robber_strat: vector V (I.num_cops)× V → V)
+(robber_strat: vector V n× V → V)
 (robber_legal: ∀ v P, G.adj v (robber_strat (P,v)))
 
 /-
-Trying to define what it means for a cop/robber to win 
+Defining winning strategies for the cop and the robber
 -/
-def cycle {V: Type} [fintype V] {G: refl_graph V} (CR : cr_game G) : vector V (CR.I.num_cops)× V → vector V (CR.I.num_cops)× V := 
+section strategies
+
+parameters (V: Type) [fintype V] (G: refl_graph V) (k : fin (fintype.card V+1))
+
+def capture (C: vector V n) (R: V) := ∃ i, vector.nth C i = R
+
+def robber_win (G: refl_graph V) := ∀ CR : 
+
+/-(CR: cr_game G k) := ∀ C R, ∃ v, CR.robber_strat (C,R) = v →  -/ 
+
+end strategies
+/-
+Trying to define what it means for a cop/robber to win 
+Universal quantifer to define winning cop and robber strategies
+-/
+def round {V: Type} [fintype V] {G: refl_graph V} (CR : cr_game G) : 
+  vector V (CR.n)× V → vector V (CR.n)× V := 
  λ x, (CR.cop_strat x, CR.robber_strat (CR.cop_strat x, x.2))
 
-def iter :  ℕ → (Type → Type) → (Type → Type) 
+/-REVIEW-/
+def iter {α : Type* }:  ℕ → (α → α) → (α → α) 
 | 0 f := id
-| 1 f := f 
 | (n+1) f := f ∘ (iter n f) 
 
 def cops_win {V: Type} [fintype V] [decidable_eq V] {G: refl_graph V} (CR : cr_game G) : Prop :=  
-  ∃ n ∈ ℕ, ∃ m ≤ CR.I.num_cops, 
-    vector.nth (iter n (cycle CR) (CR.I.cops_start, CR.I.robber_start)).1 m 
-    = (iter n (cycle CR) (CR.I.cops_start, CR.I.robber_start)).2
+  ∃ n : ℕ, ∃ m : fin CR.n, 
+    vector.nth (iter n (round CR) (CR.I.cops_start, CR.I.robber_start)).1 m 
+    = (iter n (round CR) (CR.I.cops_start, CR.I.robber_start)).2
  
 def robbers_win {V: Type} [fintype V] [decidable_eq V] {G: refl_graph V} (CR : cr_game G) : Prop := 
   ¬ cops_win CR
@@ -164,9 +176,9 @@ def robbers_win {V: Type} [fintype V] [decidable_eq V] {G: refl_graph V} (CR : c
 /-
 Defining cop number
 -/
-#check Inf
+#check Inf 
 def cop_number {V: Type} [fintype V] [decidable_eq V] [has_Inf ℕ] (G: refl_graph V) := 
-  Inf {n : ℕ | ∃ CR: cr_game G, CR.I.num_cops = n → cops_win CR}
+  Inf {n : ℕ | ∃ CR: cr_game G, CR.n = n ∧ cops_win CR}
 
 def cop_win_graph {V: Type} [fintype V] [decidable_eq V] [has_Inf ℕ] (G: refl_graph V): Prop := cop_number G = 1
 
@@ -223,7 +235,7 @@ def dismantle (G: refl_graph V) : list V → Prop
 | [] := G ≅ singleton_graph 
 | (a::L) := (is_corner a G) ∧ dismantle L
 
-/-TODO: Define this properly-/
-def dismantlable_graph (G: refl_graph V) := (G ≅ singleton_graph) ∨ (∃ L, dismantle G L)
+def dismantlable_graph (G: refl_graph V) := ∃ L, dismantle G L
+
 
 end CR_graphs
