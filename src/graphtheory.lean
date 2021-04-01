@@ -129,58 +129,46 @@ end
 variable n: ℕ
 /-
 Set up a cops and robber's game on a graph
+
+MAYBE separate the cop and robber strategy? Would be easier doing the universal quantifiers in the long run
 -/
-structure cr_game {V: Type} [fintype V] (G: refl_graph V) (n : fin (fintype.card V+1)):=
+structure cop_strat {V: Type} [fintype V] (G: refl_graph V) (n : fin (fintype.card V+1)) :=
 (cop_init:  vector V n)
-(robber_init: vector V n → V)
 (cop_strat: vector V n × V  → vector V n)
 (cop_legal: ∀ i v P, G.adj (vector.nth P i) (vector.nth (cop_strat (P,v)) i))
-(robber_strat: vector V n× V → V)
-(robber_legal: ∀ v P, G.adj v (robber_strat (P,v)))
 
-/-
-Defining winning strategies for the cop and the robber
--/
-section strategies
+structure rob_strat {V: Type} [fintype V] (G: refl_graph V) (n : fin (fintype.card V+1)) :=
+(rob_init: vector V n → V)
+(rob_strat: vector V n× V → V)
+(rob_legal: ∀ v P, G.adj v (rob_strat (P,v)))
 
-parameters (V: Type) [fintype V] (G: refl_graph V) (k : fin (fintype.card V+1))
+def capture {V: Type} [fintype V] {k : fin (fintype.card V+1)} (P: vector V k × V) := ∃ i, vector.nth P.1 i = P.2
 
-def capture (C: vector V n) (R: V) := ∃ i, vector.nth C i = R
+def round {V: Type} [fintype V] {G: refl_graph V} {k : fin (fintype.card V+1)} (CS: cop_strat G k) (RS: rob_strat G k) : ℕ → vector V k × V
+| 0 := (CS.cop_init, RS.rob_init (CS.cop_init))
+| (n+1) := (CS.cop_strat (round n), 
+            RS.rob_strat(CS.cop_strat (round n), (round n).2) )
 
-def robber_win (G: refl_graph V) := ∀ CR : 
+def winning_strat_cop {V: Type} [fintype V] {G: refl_graph V} {k : fin (fintype.card V+1)} 
+(CS: cop_strat G k) := 
+  ∀ RS: rob_strat G k , ∃ n : ℕ, capture (round CS RS n)
 
-/-(CR: cr_game G k) := ∀ C R, ∃ v, CR.robber_strat (C,R) = v →  -/ 
+def k_cop_win {V: Type} [fintype V] (G: refl_graph V) (k: fin (fintype.card V+1)) := 
+∃ CS: cop_strat G k, winning_strat_cop CS
 
-end strategies
-/-
-Trying to define what it means for a cop/robber to win 
-Universal quantifer to define winning cop and robber strategies
--/
-def round {V: Type} [fintype V] {G: refl_graph V} (CR : cr_game G) : 
-  vector V (CR.n)× V → vector V (CR.n)× V := 
- λ x, (CR.cop_strat x, CR.robber_strat (CR.cop_strat x, x.2))
+def winning_strat_rob {V: Type} [fintype V] {G: refl_graph V} {k : fin (fintype.card V+1)} 
+(RS: rob_strat G k) := 
+  ∀ CS: cop_strat G k, not (∃ n : ℕ, capture (round CS RS n))
 
-/-REVIEW-/
-def iter {α : Type* }:  ℕ → (α → α) → (α → α) 
-| 0 f := id
-| (n+1) f := f ∘ (iter n f) 
+structure cr_game {V: Type} [fintype V] (G: refl_graph V) (n : fin (fintype.card V+1)):=
+(cop_strat: cop_strat G n)
+(rob_strat: rob_strat G n)
+(someone_wins: xor (winning_strat_cop cop_strat) (winning_strat_rob rob_strat))
 
-def cops_win {V: Type} [fintype V] [decidable_eq V] {G: refl_graph V} (CR : cr_game G) : Prop :=  
-  ∃ n : ℕ, ∃ m : fin CR.n, 
-    vector.nth (iter n (round CR) (CR.I.cops_start, CR.I.robber_start)).1 m 
-    = (iter n (round CR) (CR.I.cops_start, CR.I.robber_start)).2
- 
-def robbers_win {V: Type} [fintype V] [decidable_eq V] {G: refl_graph V} (CR : cr_game G) : Prop := 
-  ¬ cops_win CR
+def cop_number {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) := 
+  Inf {k : ℕ | k_cop_win G k}
 
-/-
-Defining cop number
--/
-#check Inf 
-def cop_number {V: Type} [fintype V] [decidable_eq V] [has_Inf ℕ] (G: refl_graph V) := 
-  Inf {n : ℕ | ∃ CR: cr_game G, CR.n = n ∧ cops_win CR}
-
-def cop_win_graph {V: Type} [fintype V] [decidable_eq V] [has_Inf ℕ] (G: refl_graph V): Prop := cop_number G = 1
+def cop_win_graph {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) := cop_number G = 1
 
 section CR_graphs
 
