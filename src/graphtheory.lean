@@ -15,7 +15,6 @@ structure refl_graph (V: Type):=
 (sym : symmetric adj)
 (selfloop : reflexive adj . obviously)
 
-
 #check refl_graph.sym
 
 def complete_refl_graph (V: Type) : refl_graph V :=
@@ -32,6 +31,25 @@ def empty_graph : refl_graph empty :=
   selfloop := λ u, trivial
 }
 
+def k_cycle (n: ℕ ) : refl_graph (fin n) :=
+{
+  adj := λ x, λ y, (x=y) ∨ ↑y =↑x+1 ∨ ↑x =↑y+1 ∨ (↑y = n-1 ∧ ↑x=0) ∨ (↑x = n-1 ∧ ↑y=0),
+  sym :=
+  begin
+    intros u v,
+    intros h, 
+    cases h with h1 h2,
+    { }
+  end,
+  selfloop:=
+  begin
+    intro x,
+    have Q: x=x,
+      {refl,},
+    exact Q,
+  end
+}
+
 def cat_prod_graph {V W: Type} (G: refl_graph V) (H: refl_graph W) : refl_graph (V × W) :=
 {
   adj := λ u v, (G.adj u.1 v.1) ∧ (H.adj u.2 v.2),
@@ -39,7 +57,6 @@ def cat_prod_graph {V W: Type} (G: refl_graph V) (H: refl_graph W) : refl_graph 
   begin
     intros u v,
     intros h,
-/-QUESTION: If we flip lines 43 and 44 we get error. Why?-/
     cases h with Gedge Hedge,
     split,
     exact G.sym Gedge,
@@ -56,7 +73,6 @@ def cat_prod_graph {V W: Type} (G: refl_graph V) (H: refl_graph W) : refl_graph 
 
 def singleton_graph :refl_graph unit := complete_refl_graph unit
 
-/-Need to define graph homomorphism. Not defined yet-/
 structure graph_hom {V W: Type} (G  : refl_graph V) (H: refl_graph W) :=
 (to_fun : V → W)
 (mapEdges: ∀ v w, G.adj v w → H.adj (to_fun v) (to_fun w))
@@ -123,6 +139,7 @@ def trivial_iso : graph_iso empty_graph empty_graph := identity_iso empty_graph
 
 lemma isos_are_comm {V W: Type} {G  : refl_graph V} {H: refl_graph W} : cat_prod_graph G H ≅ cat_prod_graph H G :=
 begin
+  sorry,
   /-TODO-/
 end
 
@@ -170,6 +187,39 @@ def cop_number {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) :=
 
 def cop_win_graph {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) := cop_number G = 1
 
+lemma zero_cops_cant_win {V: Type} [fintype V] [has_Inf ℕ] :
+  V ≠ empty → ∀ G : refl_graph V, cop_number G > 0 :=
+begin
+  intro non,
+  intro G,
+  by_contradiction H,
+  /-Proof outline: 
+  Suppose cop number of G=0. 
+  Then G has a winning strategy with 0 cops.
+  Then for all robber strats, the cops will eventually capture the robber.
+  However consider the robber strategy where it goes on a vtx and doesn't move (uses nonempty)
+  Then for all natural numbers, the cop cannot capture the robber.
+  So this was not a winning strategy.
+  -/
+end
+
+lemma complete_refl_graph_cop_win (V: Type) [fintype V] [has_Inf ℕ] : cop_win_graph (complete_refl_graph V) :=
+begin
+  rw cop_win_graph,
+  rw cop_number,
+  /-
+  Proof outline:
+  We want to find a winning cop strategy for a complete graph.
+  Define the cop strategy as follows:
+  cop_init: [v] for some arbitrary v : V
+  cop_strat: (v,w) → w
+  cop_legal : uses the fact that the graph is complete_refl_graph
+  So the cop number is 1 or 0.
+  The cop number can't be 0 because zero_cops_cant_win.
+  So the cop number is 1.
+  -/
+end
+
 section CR_graphs
 
 parameters {V W: Type}[fintype V] (G : refl_graph V)
@@ -190,11 +240,8 @@ def has_corner (G: refl_graph V) : Prop :=
   (∃ w , corner_vtx w)
 
 /-Question: Why is univ defined as a finset-/
-#check univ
 
-#check some
 def is_corner (v: V) (G: refl_graph V) : Prop := (has_corner G) ∧ corner_vtx v 
-def find_corner (G: refl_graph V) : option V := if ∃ v, is_corner v G then some v else none
 
 /-TODO: This theorem. It uses the "second to last" move of the cop, which might be a little hard to encode-/
 theorem cwg_has_corner [decidable_eq V] [has_Inf ℕ] (G: refl_graph V): cop_win_graph G → has_corner G := 
