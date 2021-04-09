@@ -1,6 +1,7 @@
 import data.fintype.basic
 import data.sym2
 import data.list
+import data.set.basic
 import order.conditionally_complete_lattice
 import system.random.basic
 
@@ -229,8 +230,22 @@ begin
   exact con,
 end
 
-#check nat.Inf_eq_zero.1
-lemma zero_cops_cant_win {V: Type} [fintype V] [has_Inf ℕ] [decidable_eq V] :
+def zero_cop_robber_strategy {V: Type} [fintype V] [decidable_eq V] [inhabited V] [has_Inf ℕ] [decidable_eq V] (G: refl_graph V): rob_strat G 0 :=
+{
+  rob_init:= λ x, arbitrary V,
+  rob_strat := λ x, x.2,
+  rob_legal :=
+  begin
+    simp,
+    intros v H,
+    apply G.selfloop,
+  end
+}
+
+theorem not_nonempty_empty : ¬(∅ : set α).nonempty :=
+λ h, h.ne_empty rfl
+
+lemma zero_cops_cant_win {V: Type} [fintype V] [has_Inf ℕ] [decidable_eq V][inhabited V]  :
   V ≠ empty → ∀ G : refl_graph V, 0<cop_number G :=
 begin
   intro non,
@@ -250,24 +265,44 @@ begin
   },
   cases Inf_zero with H1 H2,
   {
-    sorry,
+    have zero_win : k_cop_win G 0,
+      apply' H1,
+    rw k_cop_win at zero_win,
+    have not_zero_win: ¬ (∃ (CS : cop_strat G 0), winning_strat_cop CS),
+    {
+      push_neg,
+      intro CS,
+      rw winning_strat_cop,
+      push_neg,
+      let RS := zero_cop_robber_strategy G,
+      use RS,
+      intro n,
+      cases n,
+      {
+        rw capture,
+        simp,
+        intro x,
+        apply fin.elim0 x,
+      },
+      {
+        rw capture,
+        simp,
+        intro x,
+        apply fin.elim0 x,
+      },
+    },
+    contradiction,
   },
   {
     let K := lots_of_cops G non,
-    have negK : ¬ {k : ℕ | k_cop_win G k}.nonempty,
+    have negK : ¬ set.nonempty {k : ℕ | k_cop_win G k},
     {
-      sorry,
-    }
+      rw H2,
+      exact not_nonempty_empty,
+    },
+    contradiction,
   },
   -- apply (nat.Inf_eq_zero).1 zero_cops,
-  /-Proof outline: 
-  Suppose cop number of G=0. 
-  Then G has a winning strategy with 0 cops.
-  Then for all robber strats, the cops will eventually capture the robber.
-  However consider the robber strategy where it goes on a vtx and doesn't move (uses nonempty)
-  Then for all natural numbers, the cop cannot capture the robber.
-  So this was not a winning strategy.
-  -/
 end
 
 def complete_strategy (V: Type) [fintype V] [decidable_eq V] [inhabited V] [has_Inf ℕ] : cop_strat (complete_refl_graph V) 1 :=
