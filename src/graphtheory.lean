@@ -126,6 +126,8 @@ Set up a cops and robber's game on a graph
 
 MAYBE separate the cop and robber strategy? Would be easier doing the universal quantifiers in the long run
 -/
+def capture {V: Type} [fintype V] {k : ℕ } (P: vector V k × V) := ∃ i, vector.nth P.1 i = P.2
+
 structure cop_strat {V: Type} [fintype V] (G: refl_graph V) (n :ℕ ) :=
 (cop_init:  vector V n)
 (cop_strat: vector V n × V  → vector V n)
@@ -134,9 +136,9 @@ structure cop_strat {V: Type} [fintype V] (G: refl_graph V) (n :ℕ ) :=
 structure rob_strat {V: Type} [fintype V] (G: refl_graph V) (n : ℕ ) :=
 (rob_init: vector V n → V)
 (rob_strat: vector V n× V → V)
+(rob_is_caught: ∀ K,  capture K → rob_strat K = K.2)
 (rob_legal: ∀ v P, G.adj v (rob_strat (P,v)))
 
-def capture {V: Type} [fintype V] {k : ℕ } (P: vector V k × V) := ∃ i, vector.nth P.1 i = P.2
 
 def round {V: Type} [fintype V] {G: refl_graph V} {k : ℕ } (CS: cop_strat G k) (RS: rob_strat G k) : ℕ → vector V k × V
 | 0 := (CS.cop_init, RS.rob_init (CS.cop_init))
@@ -165,42 +167,27 @@ def cop_number {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) :=
 def cop_win_graph {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) := cop_number G = 1
 
 ---------------------------------------------------------------------------------------------------------
+noncomputable theory
 #check eq.symm
-noncomputable def exists_list_of_elts (V: Type) [fintype V] [decidable_eq V]: vector V (fintype.card V):= 
+
+def enum_elts (V: Type) [fintype V] [decidable_eq V]: fin (fintype.card V) ≃ V :=
+(fintype.equiv_fin V).out.symm
+
+lemma exists_index {V: Type} [fintype V] [decidable_eq V] (v : V)  : ∃ i, enum_elts V i = v :=
+(enum_elts V).bijective.surjective v
+
+lemma exists_index_vec {V: Type} [fintype V] [decidable_eq V] (v: V) : ∃ i, vector.nth (vector.of_fn (enum_elts V)) i = v :=
 begin
-  choose L hL using fintype.exists_univ_list V,
-  cases hL with h1 h2,
-  have P: V ≃ (fin L.length),
-    exact fintype.equiv_fin_of_forall_mem_list h2 h1,
-  have Q: fintype.card (fin L.length) = fintype.card V,
-    exact fintype.card_congr (equiv.symm P),
-  have R: fintype.card (fin L.length) = L.length,
-    exact fintype.card_fin (L.length),
-  have S: fintype.card V = L.length,
-    exact eq.trans (eq.symm Q) R,
-  exact ⟨L, eq.symm S⟩,
+  cases exists_index v with i hi, 
+  use i,
+  simp,
+  exact hi,
 end
 
-def find_index {V: Type} (p : V → Prop) [decidable_pred p] : list V → ℕ → option ℕ 
-| [] n    := none
-| (a::l) n := if p a then some n else find_index l (n+1)
-
-noncomputable def find_ind_vec {V: Type } [fintype V] [decidable_eq V] {n : ℕ } (vec: vector V n) (v: V) : ℕ :=
-begin
-  let L := vector.to_list vec,
-  let p := λ x, x=v,
-  let O := find_index p L 0,
-  have S : option.is_some O = tt,
-  {
-    /-TODO-/
-    sorry,
-  },
-  exact option.get S,
-end
-
-noncomputable def trivial_strategy {V: Type} [fintype V] [decidable_eq V] [has_Inf ℕ] (G: refl_graph V) : cop_strat G (fintype.card V) :=
+/-TODO: Two cops on the same vector?-/
+def trivial_strategy {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : cop_strat G (fintype.card V) :=
 {
-  cop_init := exists_list_of_elts V,
+  cop_init :=  vector.of_fn (enum_elts V),
   cop_strat:= λ x, x.1,
   cop_legal :=
     begin
@@ -210,10 +197,10 @@ noncomputable def trivial_strategy {V: Type} [fintype V] [decidable_eq V] [has_I
     end,
 }
 
-lemma lots_of_cops {V: Type} [fintype V] [has_Inf ℕ] [decidable_eq V] (G: refl_graph V) : 
-V ≠ empty  → set.nonempty {k : ℕ | k_cop_win G k} :=
+
+lemma lots_of_cops {V: Type} [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V) : 
+set.nonempty {k : ℕ | k_cop_win G k} :=
 begin
-  intro non,
   let strat_all := trivial_strategy G,
   have con: (fintype.card V) ∈ {k : ℕ | k_cop_win G k},
   {
@@ -222,18 +209,23 @@ begin
     intro RS,
     use 0,
     rw capture,
-    /-TODO-/
-    sorry,
+    let v := (round strat_all RS 0).snd,
+    exact exists_index_vec v,
   },
   rwa set.nonempty_def,
   use fintype.card V,
   exact con,
 end
 
-def zero_cop_robber_strategy {V: Type} [fintype V] [decidable_eq V] [inhabited V] [has_Inf ℕ] [decidable_eq V] (G: refl_graph V): rob_strat G 0 :=
+def zero_cop_robber_strategy {V: Type} [fintype V] [decidable_eq V] [inhabited V] [decidable_eq V] (G: refl_graph V): rob_strat G 0 :=
 {
   rob_init:= λ x, arbitrary V,
   rob_strat := λ x, x.2,
+  rob_is_caught :=
+  begin
+    intros K C,
+    refl,
+  end,
   rob_legal :=
   begin
     simp,
@@ -242,13 +234,9 @@ def zero_cop_robber_strategy {V: Type} [fintype V] [decidable_eq V] [inhabited V
   end
 }
 
-theorem not_nonempty_empty : ¬(∅ : set α).nonempty :=
-λ h, h.ne_empty rfl
-
-lemma zero_cops_cant_win {V: Type} [fintype V] [has_Inf ℕ] [decidable_eq V][inhabited V]  :
-  V ≠ empty → ∀ G : refl_graph V, 0<cop_number G :=
+lemma zero_cops_cant_win {V: Type} [fintype V] [decidable_eq V][inhabited V]  :
+  ∀ G : refl_graph V, 0<cop_number G :=
 begin
-  intro non,
   intro G,
   by_contradiction H,
   rw not_lt at H,
@@ -260,9 +248,7 @@ begin
   },
   rw cop_number at zero_cops,
   have Inf_zero : 0 ∈ {k : ℕ | k_cop_win G k} ∨ {k : ℕ | k_cop_win G k} = ∅,
-  {
-    sorry,
-  },
+    apply (nat.Inf_eq_zero).1 zero_cops,
   cases Inf_zero with H1 H2,
   {
     have zero_win : k_cop_win G 0,
@@ -294,7 +280,7 @@ begin
     contradiction,
   },
   {
-    let K := lots_of_cops G non,
+    let K := lots_of_cops G,
     have negK : ¬ set.nonempty {k : ℕ | k_cop_win G k},
     {
       rw H2,
@@ -302,7 +288,7 @@ begin
     },
     contradiction,
   },
-  -- apply (nat.Inf_eq_zero).1 zero_cops,
+  -- ,
 end
 
 def complete_strategy (V: Type) [fintype V] [decidable_eq V] [inhabited V] [has_Inf ℕ] : cop_strat (complete_refl_graph V) 1 :=
@@ -312,9 +298,7 @@ def complete_strategy (V: Type) [fintype V] [decidable_eq V] [inhabited V] [has_
   let v := arbitrary V,
     let L := [v],
   have prop: L.length = 1,
-  {
     simp,
-  },
   exact ⟨L, prop⟩, 
   end,
   cop_strat:= 
@@ -322,9 +306,7 @@ def complete_strategy (V: Type) [fintype V] [decidable_eq V] [inhabited V] [has_
     intro x,
     let L := [x.2],
     have prop: L.length = 1,
-    {
       simp,
-    },
     exact ⟨L, prop⟩, 
   end, 
   cop_legal := 
@@ -334,11 +316,10 @@ def complete_strategy (V: Type) [fintype V] [decidable_eq V] [inhabited V] [has_
   end
 }
 
-lemma complete_refl_graph_cop_win (V: Type) [fintype V][decidable_eq V] [inhabited V]  [has_Inf ℕ] : V ≠ empty → cop_win_graph (complete_refl_graph V) :=
+lemma complete_refl_graph_cop_win (V: Type) [fintype V][decidable_eq V] [inhabited V] : cop_win_graph (complete_refl_graph V) :=
 begin
   rw cop_win_graph,
   rw cop_number,
-  intro non,
   have CW : 1 ∈ {k : ℕ | k_cop_win (complete_refl_graph V) k},
   {
     let CW_strat := complete_strategy V,
@@ -347,79 +328,36 @@ begin
       intro RS,
       use 1,
       use 0,
-      unfold round,
-      simp,
-      sorry,
+      let I := round CW_strat RS 0,
+      have cap: capture (CW_strat.cop_strat I,I.2),
+      {
+        unfold capture,
+        use 0,
+        simp,
+        refl,
+      },
+      have eq: I.2 = (round CW_strat RS 1).1.nth 0,
+      {
+        unfold round,
+        simp,
+        refl,
+      },
+      have eq' : I.2 = (round CW_strat RS 1).2,
+      {
+        unfold round,
+        simp,
+        let C:= RS.rob_is_caught (CW_strat.cop_strat I,I.2) cap,
+        exact C.symm,
+      }, 
+      exact trans (symm eq) eq',
     },
     simp,
     use CW_strat,
     exact winning,
   },
-  /-
-  Proof outline:
-  We want to find a winning cop strategy for a complete graph.
-  Define the cop strategy as follows:
-  cop_init: [v] for some arbitrary v : V
-  cop_strat: (v,w) → w
-  cop_legal : uses the fact that the graph is complete_refl_graph
-  So the cop number is 1 or 0.
-  The cop number can't be 0 because zero_cops_cant_win.
-  So the cop number is 1.
-  -/
+  have leq: Inf {k : ℕ | k_cop_win (complete_refl_graph V) k} ≤ 1,
+    exact nat.Inf_le CW,
+  have ge : Inf {k : ℕ | k_cop_win (complete_refl_graph V) k} >0,
+    exact zero_cops_cant_win (complete_refl_graph V),
+  linarith,
 end
-
----------------------------------------------------------------------------------------------------
-section CR_graphs
-
-parameters {V W: Type}[fintype V] (G : refl_graph V)
-
-/-The definition of neighbor set was stolen from mathlib. Closed neighbor set is used to define corners, which is a central concept-/
-def neighbor_set (v : V) : set V := set_of (G.adj v)
-def neighbor_set' (v : V) : set V := { w | G.adj v w }
-
-def closed_neighbor_set (v : V) : set V := (neighbor_set v) ∪ {v}
-/-
-Corner vertices, an important concept in Cops and Robbers
-A vtx w is a corner iff there exists some vertex v such that the neighbors of w is a subset of the neighbors of v
--/
-def corner_vtx (w: V)  : Prop :=
-  (∃ v , closed_neighbor_set w ⊆ closed_neighbor_set v)
-
-def has_corner (G: refl_graph V) : Prop :=
-  (∃ w , corner_vtx w)
-
-/-Question: Why is univ defined as a finset-/
-
-def is_corner (v: V) (G: refl_graph V) : Prop := (has_corner G) ∧ corner_vtx v 
-
-/-TODO: This theorem. It uses the "second to last" move of the cop, which might be a little hard to encode-/
-theorem cwg_has_corner [decidable_eq V] [has_Inf ℕ] (G: refl_graph V): cop_win_graph G → has_corner G := 
-begin
-  intro h,
-  sorry,
-end
-
-lemma edge_symm (u v : V) : G.adj u v ↔  G.adj v u := ⟨λ x, G.sym x, λ y, G.sym y⟩
- 
-def rm_graph (c: V) (H: refl_graph V) : refl_graph {v:V//v ≠ c} :=
-{ adj := λ a b, H.adj a b, 
-  sym :=  λ a b h, H.sym h,
-  selfloop := 
-  begin
-    intro a, 
-    apply H.selfloop,
-  end  
-}
-
-structure retract (c:V) (v:V) (H: refl_graph V):=
-(f: graph_hom H (rm_graph c H)) 
-(is_retract:  ↑(f.to_fun c) = v )
-
-def dismantle (G: refl_graph V) : list V → Prop
-| [] := G ≅ singleton_graph 
-| (a::L) := (is_corner a G) ∧ dismantle L
-
-def dismantlable_graph (G: refl_graph V) := ∃ L, dismantle G L
-
-
-end CR_graphs
