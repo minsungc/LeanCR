@@ -68,7 +68,7 @@ begin
 end
 
 
-def induced_subgraph (S: set V) (G: refl_graph V) : refl_graph {v:V//v ∉ S} :=
+def induced_subgraph (S: fintype V) (G: refl_graph V) : refl_graph {v:V//v ∉ S.elems} :=
 { adj := λ a b, G.adj a b, 
   sym :=  λ a b h, G.sym h,
   selfloop := 
@@ -82,7 +82,6 @@ def retract {c: V} (G: refl_graph V) (H:= induced_subgraph {c} G)  :=
   ∃ f: graph_hom G H, ∀ v ≠ c, v = f.to_fun(v)
 
 
-
 def dismantle (G: refl_graph V) : list V → Prop
 | [] := G ≅ singleton_graph 
 | (a::L) := (corner_vtx G a) ∧ dismantle L
@@ -90,5 +89,6 @@ def dismantle (G: refl_graph V) : list V → Prop
 def dismantlable_graph (G: refl_graph V) := ∃ L, dismantle G L
 
 lemma cop_num_le_retract {c:V} (G: refl_graph V) (H:= induced_subgraph {c} G) : 
-retract G H → cop_number H ≤ cop_number G
+retract G H → cop_number H ≤ cop_number G :=
+
 
