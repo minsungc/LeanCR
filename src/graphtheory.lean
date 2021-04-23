@@ -18,8 +18,6 @@ structure refl_graph (V: Type):=
 (sym : symmetric adj)
 (selfloop : reflexive adj . obviously)
 
-#check refl_graph.sym
-
 def complete_refl_graph (V: Type) : refl_graph V :=
 { adj := λ u v, true,
   sym := λ u v h,  trivial ,
@@ -123,8 +121,6 @@ def trivial_iso : graph_iso empty_graph empty_graph := identity_iso empty_graph
 
 /-
 Set up a cops and robber's game on a graph
-
-MAYBE separate the cop and robber strategy? Would be easier doing the universal quantifiers in the long run
 -/
 def capture {V: Type} [fintype V] {k : ℕ } (P: vector V k × V) := ∃ i, vector.nth P.1 i = P.2
 

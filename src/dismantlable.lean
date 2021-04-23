@@ -68,7 +68,7 @@ begin
 end
 
 
-def rm_graph (c: V) (G: refl_graph V) : refl_graph {v:V//v ≠ c} :=
+def induced_subgraph (S: set V) (G: refl_graph V) : refl_graph {v:V//v ∉ S} :=
 { adj := λ a b, G.adj a b, 
   sym :=  λ a b h, G.sym h,
   selfloop := 
@@ -78,11 +78,10 @@ def rm_graph (c: V) (G: refl_graph V) : refl_graph {v:V//v ≠ c} :=
   end  
 }
 
-structure retract' (c:V) (v:V) (G: refl_graph V):=
-(nontrivial: c ≠ v)
-(H:= rm_graph c G)
-(f: graph_hom G H) 
-(is_retract:  ↑(f.to_fun c) = v )
+def retract {c: V} (G: refl_graph V) (H:= induced_subgraph {c} G)  := 
+  ∃ f: graph_hom G H, ∀ v ≠ c, v = f.to_fun(v)
+
+
 
 def dismantle (G: refl_graph V) : list V → Prop
 | [] := G ≅ singleton_graph 
@@ -90,5 +89,6 @@ def dismantle (G: refl_graph V) : list V → Prop
 
 def dismantlable_graph (G: refl_graph V) := ∃ L, dismantle G L
 
-lemma cop_num_le_retract (G: refl_graph V) : (∃ c v, nonempty(retract' c v G)) → cop_number G ≥ 
+lemma cop_num_le_retract {c:V} (G: refl_graph V) (H:= induced_subgraph {c} G) : 
+retract G H → cop_number H ≤ cop_number G
 
