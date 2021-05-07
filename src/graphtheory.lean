@@ -8,7 +8,7 @@ import system.random.basic
 
 /-
 Reflexive Graphs:
-We define reflexive graphs as a reflexive symmetric relation on a vertex type 'V'.
+We define reflexive graphs as a refstraAlexive symmetric relation on a vertex type 'V'.
 -/
 open finset
 open classical
@@ -127,19 +127,21 @@ def capture {V: Type} [fintype V] {k : ℕ } (P: vector V k × V) := ∃ i, vect
 structure cop_strat {V: Type} [fintype V] (G: refl_graph V) (n :ℕ ) :=
 (cop_init:  vector V n)
 (cop_strat: vector V n × V  → vector V n)
+(cop_nocheat: ∀ V v, capture (V,v) → cop_strat (V,v) = V)
 (cop_legal: ∀ i v P, G.adj (vector.nth P i) (vector.nth (cop_strat (P,v)) i))
+/-Cop doesnt sabotage himself-/
 
 structure rob_strat {V: Type} [fintype V] (G: refl_graph V) (n : ℕ ) :=
 (rob_init: vector V n → V)
 (rob_strat: vector V n× V → V)
-(rob_is_caught: ∀ K,  capture K → rob_strat K = K.2)
+(rob_nocheat: ∀ K,  capture K → rob_strat K = K.2)
 (rob_legal: ∀ v P, G.adj v (rob_strat (P,v)))
 
 
 def round {V: Type} [fintype V] {G: refl_graph V} {k : ℕ } (CS: cop_strat G k) (RS: rob_strat G k) : ℕ → vector V k × V
 | 0 := (CS.cop_init, RS.rob_init (CS.cop_init))
 | (n+1) := (CS.cop_strat (round n), 
-            RS.rob_strat(CS.cop_strat (round n), (round n).2) )
+            RS.rob_strat(CS.cop_strat (round n), (round n).2))
 
 def winning_strat_cop {V: Type} [fintype V] {G: refl_graph V} {k :ℕ } 
 (CS: cop_strat G k) := 
@@ -164,8 +166,6 @@ def cop_win_graph {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) := cop_n
 
 ---------------------------------------------------------------------------------------------------------
 noncomputable theory
-#check eq.symm
-
 def enum_elts (V: Type) [fintype V] [decidable_eq V]: fin (fintype.card V) ≃ V :=
 (fintype.equiv_fin V).out.symm
 
@@ -185,6 +185,11 @@ def trivial_strategy {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : 
 {
   cop_init :=  vector.of_fn (enum_elts V),
   cop_strat:= λ x, x.1,
+  cop_nocheat :=
+    begin
+      intros V v hyp,
+      refl,
+    end,
   cop_legal :=
     begin
       intros i v L,
@@ -192,7 +197,6 @@ def trivial_strategy {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : 
       apply G.selfloop,
     end,
 }
-
 
 lemma lots_of_cops {V: Type} [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V) : 
 set.nonempty {k : ℕ | k_cop_win G k} :=
@@ -217,7 +221,7 @@ def zero_cop_robber_strategy {V: Type} [fintype V] [decidable_eq V] [inhabited V
 {
   rob_init:= λ x, arbitrary V,
   rob_strat := λ x, x.2,
-  rob_is_caught :=
+  rob_nocheat :=
   begin
     intros K C,
     refl,
@@ -246,13 +250,11 @@ begin
   have Inf_zero : 0 ∈ {k : ℕ | k_cop_win G k} ∨ {k : ℕ | k_cop_win G k} = ∅,
     apply (nat.Inf_eq_zero).1 zero_cops,
   cases Inf_zero with H1 H2,
-  {
-    have zero_win : k_cop_win G 0,
+  { have zero_win : k_cop_win G 0,
       apply' H1,
     rw k_cop_win at zero_win,
     have not_zero_win: ¬ (∃ (CS : cop_strat G 0), winning_strat_cop CS),
-    {
-      push_neg,
+    { push_neg,
       intro CS,
       rw winning_strat_cop,
       push_neg,
@@ -260,57 +262,61 @@ begin
       use RS,
       intro n,
       cases n,
-      {
-        rw capture,
+      { rw capture,
         simp,
         intro x,
-        apply fin.elim0 x,
-      },
-      {
-        rw capture,
+        apply fin.elim0 x, },
+      { rw capture,
         simp,
         intro x,
-        apply fin.elim0 x,
-      },
-    },
-    contradiction,
-  },
-  {
-    let K := lots_of_cops G,
+        apply fin.elim0 x,},},
+    contradiction,},
+  { let K := lots_of_cops G,
     have negK : ¬ set.nonempty {k : ℕ | k_cop_win G k},
-    {
-      rw H2,
-      exact not_nonempty_empty,
-    },
-    contradiction,
-  },
+    { rw H2,
+      exact not_nonempty_empty,},
+    contradiction,},
   -- ,
 end
 
-def complete_strategy (V: Type) [fintype V] [decidable_eq V] [inhabited V] [has_Inf ℕ] : cop_strat (complete_refl_graph V) 1 :=
-{
-  cop_init := 
-  begin
-  let v := arbitrary V,
-    let L := [v],
-  have prop: L.length = 1,
-    simp,
-  exact ⟨L, prop⟩, 
-  end,
-  cop_strat:= 
-  begin
-    intro x,
-    let L := [x.2],
-    have prop: L.length = 1,
+lemma zero_cops_cant_win' {V: Type} [fintype V] [decidable_eq V][inhabited V]  :
+  ∀ G : refl_graph V, 0<cop_number G :=
+begin
+  intro G,
+  apply nat.pos_of_ne_zero,
+  intro zero_cops,
+  cases nat.Inf_eq_zero.mp zero_cops with H1 H2,
+  { cases H1 with CS WCS,
+    specialize WCS (zero_cop_robber_strategy G),
+    rcases WCS with ⟨n, ⟨x, _⟩⟩,
+    exact fin.elim0 x},
+  cases lots_of_cops G with x h,
+  rw H2 at h,
+  exact set.not_mem_empty _ h,
+end
+
+
+def complete_strategy (V: Type) [fintype V] [decidable_eq V] [inhabited V] : cop_strat (complete_refl_graph V) 1 :=
+{ cop_init  := ⟨[arbitrary V], rfl⟩,
+  cop_strat := λ x, ⟨[x.2], rfl⟩,
+  cop_nocheat :=
+    begin
+      intros V1 v hyp,
       simp,
-    exact ⟨L, prop⟩, 
-  end, 
-  cop_legal := 
-  begin
-    intros i v P,
-    simp,
-  end
-}
+      rw capture at hyp,
+      simp at hyp,
+      cases hyp with i hyp',
+      have this: i=0,
+        simp,
+      rw this at hyp',
+      refine vector.ext _,
+      intro m,
+      have this: m=0,
+        simp,
+      rwa this,
+      rwa hyp', refl,
+    end,
+  cop_legal := λ i v p, trivial }
 
 lemma complete_refl_graph_cop_win (V: Type) [fintype V][decidable_eq V] [inhabited V] : cop_win_graph (complete_refl_graph V) :=
 begin
@@ -342,7 +348,7 @@ begin
       {
         unfold round,
         simp,
-        let C:= RS.rob_is_caught (CW_strat.cop_strat I,I.2) cap,
+        let C:= RS.rob_nocheat (CW_strat.cop_strat I,I.2) cap,
         exact C.symm,
       }, 
       exact trans (symm eq) eq',
@@ -354,6 +360,22 @@ begin
   have leq: Inf {k : ℕ | k_cop_win (complete_refl_graph V) k} ≤ 1,
     exact nat.Inf_le CW,
   have ge : Inf {k : ℕ | k_cop_win (complete_refl_graph V) k} >0,
+    exact zero_cops_cant_win (complete_refl_graph V),
+  linarith,
+end
+
+lemma complete_refl_graph_cop_win' (V: Type) [fintype V] [decidable_eq V] [inhabited V] : cop_win_graph (complete_refl_graph V) :=
+begin
+  rw [cop_win_graph, cop_number],
+  have leq: Inf {k : ℕ | k_cop_win (complete_refl_graph V) k} ≤ 1,
+  { apply nat.Inf_le,
+    use [complete_strategy V],
+    intro RS,
+    use [1, 0],
+    symmetry, transitivity, apply RS.rob_nocheat,
+    { use [0, rfl] },
+    refl },
+  have ge : Inf {k : ℕ | k_cop_win (complete_refl_graph V) k} > 0,
     exact zero_cops_cant_win (complete_refl_graph V),
   linarith,
 end
