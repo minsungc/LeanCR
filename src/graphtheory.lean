@@ -5,7 +5,6 @@ import data.set.basic
 import order.conditionally_complete_lattice
 import system.random.basic
 
-
 /-
 Reflexive Graphs:
 We define reflexive graphs as a refstraAlexive symmetric relation on a vertex type 'V'.
@@ -166,8 +165,10 @@ def cop_win_graph {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) := cop_n
 
 ---------------------------------------------------------------------------------------------------------
 noncomputable theory
+
+
 def enum_elts (V: Type) [fintype V] [decidable_eq V]: fin (fintype.card V) ≃ V :=
-(fintype.equiv_fin V).out.symm
+(fintype.equiv_fin V).symm
 
 lemma exists_index {V: Type} [fintype V] [decidable_eq V] (v : V)  : ∃ i, enum_elts V i = v :=
 (enum_elts V).bijective.surjective v
