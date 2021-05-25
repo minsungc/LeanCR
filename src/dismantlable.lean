@@ -118,13 +118,20 @@ begin
   have same : (smart_robber G).rob_init CS.cop_init=CS.cop_init.head ,
     exact inits CS cap,
   have neq: ¬∃ w, CS.cop_init.head ≠ w,
-  { push_neg,
+  { push_neg, 
     sorry,
   },
   simp at neq,
   exact neq,
 end
 
+lemma upward_closed (P: ℕ → Prop) (h: ∀ k1 : ℕ , P k1 → P k1.succ) : ∀ k1 k2, k1 ≤ k2 → P k1 → P k2:=
+begin
+  intros k1 k2 le hyp,
+  exact nat.le_rec_on le h hyp,
+end 
+
+#check nat.rec
 theorem wcs_min_rounds [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {k :ℕ }  
   (CS: cop_strat G k) :
   winning_strat_cop CS → ∀ RS: rob_strat G k, ∃ n:ℕ , n = Inf{n:ℕ | capture (round CS RS n)} :=
@@ -136,7 +143,14 @@ begin
   simp,
 end
 
-#check eq.symm
+theorem cap [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} : ∀ k1 k2 : ℕ , k1 ≤ k2 → k1 ∈ {n:ℕ | capture (round CS RS n)} → k2 ∈ {n:ℕ | capture (round CS RS n)} :=
+begin
+  intros k1 k2 le inc,
+  simp at inc,
+  simp,
+  
+end
+
 theorem cwg_has_corner [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V): 
 cop_win_graph G → has_corner G := 
 begin
@@ -186,8 +200,10 @@ begin
     suffices : fintype.card V = 1,
       exact fintype.equiv_of_card_eq (eq.trans this (fintype.card_unit).symm),
     have this: ∀ w, w= CS.cop_init.head,
-    { 
-      
+    { by_contradiction K,
+      push_neg at K,
+      --Reverse-engineering dite statements
+      sorry,
     },
     exact fintype.card_eq_one_of_forall_eq this,
   },
@@ -242,11 +258,13 @@ begin
   rw neighbor_set',
   simp,
   simp at hi,
+  have w_nocap : ¬ capture (round CS RS w),
+  { 
+  },
   have rob_in_place: (round CS RS w).snd = (round CS RS w.succ).snd,
   { 
-    have capt: capture (CS.cop_strat (round CS RS w), (round CS RS w).snd),
-    {
-      rw capture,
+    have capt: capture (CS.cop_strat (round CS RS w.succ), (round CS RS w).snd),
+    { rw capture,
       use 0,
       simp,
     }
