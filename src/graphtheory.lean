@@ -22,7 +22,20 @@ def complete_refl_graph (V: Type) : refl_graph V :=
   sym := λ u v h,  trivial ,
   selfloop := λ u, trivial }
 
-
+open_locale classical
+lemma rgraph_vtx_neq {V: Type} (G: refl_graph V) (v: V) (h: ∃ (w : V), ¬G.adj v w) 
+: some h ≠ v :=
+begin
+  have h': ¬G.adj v (some h),
+    exact some_spec h,
+  have refl: G.adj v v,
+    exact G.selfloop v,
+  by_contradiction C,
+  simp at C,
+  have cnt: G.adj v (some h),
+    exact eq.subst C.symm refl,
+  contradiction,
+end
 def empty_graph : refl_graph empty :=
 /-complete_refl_graph empty-/
 {
@@ -126,7 +139,7 @@ def capture {V: Type} [fintype V] {k : ℕ } (P: vector V k × V) := ∃ i, vect
 structure cop_strat {V: Type} [fintype V] (G: refl_graph V) (n :ℕ ) :=
 (cop_init:  vector V n)
 (cop_strat: vector V n × V  → vector V n)
-(cop_nocheat: ∀ V v, capture (V,v) → cop_strat (V,v) = V)
+(cop_nocheat: ∀ K, capture K → cop_strat K = K.1)
 (cop_legal: ∀ i v P, G.adj (vector.nth P i) (vector.nth (cop_strat (P,v)) i))
 /-Cop doesnt sabotage himself-/
 
@@ -188,7 +201,7 @@ def trivial_strategy {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : 
   cop_strat:= λ x, x.1,
   cop_nocheat :=
     begin
-      intros V v hyp,
+      intros K hyp,
       refl,
     end,
   cop_legal :=
@@ -302,10 +315,8 @@ def complete_strategy (V: Type) [fintype V] [decidable_eq V] [inhabited V] : cop
   cop_strat := λ x, ⟨[x.2], rfl⟩,
   cop_nocheat :=
     begin
-      intros V1 v hyp,
-      simp,
+      intros K hyp,
       rw capture at hyp,
-      simp at hyp,
       cases hyp with i hyp',
       have this: i=0,
         simp,

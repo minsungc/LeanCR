@@ -1,5 +1,6 @@
 import graphtheory
 import data.fintype.basic
+import set_theory.zfc
 
 open finset
 open classical
@@ -29,7 +30,7 @@ noncomputable theory
  
 
 def rob_init_fn {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : vector V 1 → V := 
- λ x, if h : ∃ w, x.head ≠  w then 
+ λ x, if h : ∃ w, w ≠ x.head then 
  (if g: ∃ w, ¬ G.adj x.head w then some g else some h)
  else x.head
 
@@ -109,29 +110,6 @@ lemma inits [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V}
     exact hi.symm,
   end
 
-theorem initial_catch [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V}
-  (CS: cop_strat G 1) 
-  : capture (round CS (smart_robber G) 0) → ∀ w, CS.cop_init.head = w :=
-begin
-  intros cap, 
-  let RS:= smart_robber G,
-  have same : (smart_robber G).rob_init CS.cop_init=CS.cop_init.head ,
-    exact inits CS cap,
-  have neq: ¬∃ w, CS.cop_init.head ≠ w,
-  { push_neg, 
-    sorry,
-  },
-  simp at neq,
-  exact neq,
-end
-
-lemma upward_closed (P: ℕ → Prop) (h: ∀ k1 : ℕ , P k1 → P k1.succ) : ∀ k1 k2, k1 ≤ k2 → P k1 → P k2:=
-begin
-  intros k1 k2 le hyp,
-  exact nat.le_rec_on le h hyp,
-end 
-
-#check nat.rec
 theorem wcs_min_rounds [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {k :ℕ }  
   (CS: cop_strat G k) :
   winning_strat_cop CS → ∀ RS: rob_strat G k, ∃ n:ℕ , n = Inf{n:ℕ | capture (round CS RS n)} :=
@@ -143,17 +121,103 @@ begin
   simp,
 end
 
-theorem cap [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} : ∀ k1 k2 : ℕ , k1 ≤ k2 → k1 ∈ {n:ℕ | capture (round CS RS n)} → k2 ∈ {n:ℕ | capture (round CS RS n)} :=
+theorem capt_upwards_closed [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} : ∀ k1 k2 : ℕ , k1 ≤ k2 → k1 ∈ {n:ℕ | capture (round CS RS n)} → k2 ∈ {n:ℕ | capture (round CS RS n)} :=
 begin
   intros k1 k2 le inc,
-  simp at inc,
-  simp,
-  
+  suffices : ∀ k1, k1 ∈ {n:ℕ | capture (round CS RS n)} → k1.succ ∈ {n:ℕ | capture (round CS RS n)},
+  { exact nat.le_rec_on le this inc,},
+  intros k1 hyp,
+  simp at hyp, simp,
+  have r_nocheat: RS.rob_strat (round CS RS k1) = (round CS RS k1).2,
+    exact RS.rob_nocheat (round CS RS k1) hyp,
+  have c_nocheat: CS.cop_strat (round CS RS k1) = (round CS RS k1).1,
+    exact CS.cop_nocheat (round CS RS k1) hyp,
+  have h: round CS RS k1.succ = round CS RS k1,
+  { unfold round,
+    erw c_nocheat,
+    simp,
+    erw r_nocheat,
+    simp,
+  },
+  rw h, exact hyp,
+end
+
+theorem mid_round_capt [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {w: ℕ } (bef: ¬ capture (round CS (smart_robber G) w)) (aft: capture (round CS (smart_robber G) w.succ)):
+capture (CS.cop_strat (round CS (smart_robber G) w), (round CS (smart_robber G) w).2):=
+begin
+  by_contradiction K,
+  let pos := (CS.cop_strat (round CS (smart_robber G) w), (round CS (smart_robber G) w).2),
+  by_cases h: G.adj pos.1.head (round CS (smart_robber G) w).2,
+  -- Case 1: The cops vtx is adjacent to the robber vtx 
+  -- Proof strategy: Then the robber can stay in place, implying no capture (for at least round w.succ)
+  { by_cases h': ∃ w, G.adj pos.2 w ∧ ¬ G.adj pos.1.head w,
+  -- Two cases: Either the robber still has an escape route or it stays in place
+    { have move : (smart_robber G).rob_strat pos  = classical.some h',
+      { rw smart_robber,
+        simp,
+        rw dif_pos h',
+      },
+      have nocap: ¬ capture (round CS (smart_robber G) w.succ),
+      { unfold capture,
+        simp,
+      intro x,
+      have : x=0, simp, rw this,
+      unfold round,
+      rw move,
+      simp,
+      exact (rgraph_vtx_neq pos.1.head h').symm,
+      },
+      contradiction,
+    },
+    have move: (smart_robber G).rob_strat pos = pos.2,
+    { rw smart_robber,
+      simp,
+      rw dif_neg h',
+    },
+    have nocap : ¬ capture (round CS (smart_robber G) w.succ), 
+    { unfold capture, 
+      simp,
+      intro x,
+      have : x=0, simp, rw this,
+      unfold round,
+      simp,
+      rw move,
+      rw capture at K, simp at K, specialize K 0, simp at K,
+      exact K,
+    },
+  },
+  --Case 2: The cop vtx is not adjacent to the robber vtx+there is an escape route
+  --Then, the robber will move to said vtx and avoid capture
+  have h' : ∃ w, G.adj pos.2 w ∧ ¬ G.adj pos.1.head w,
+  { use (round CS (smart_robber G) w).2,
+    split,
+    {exact G.selfloop pos.2,},
+    exact h,
+  },
+  have nocap : ¬ capture (round CS (smart_robber G) w.succ),
+  { have move : (smart_robber G).rob_strat pos  = classical.some h',
+      { rw smart_robber,
+        simp,
+        rw dif_pos h',
+      },
+    unfold capture,
+    simp,
+    intro x,
+    have : x=0,
+      simp,
+    rw this,
+    unfold round,
+    rw move,
+    simp,
+    exact (rgraph_vtx_neq pos.1.head h').symm,
+  },
+  contradiction,
 end
 
 theorem cwg_has_corner [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V): 
 cop_win_graph G → has_corner G := 
 begin
+  --Setup
   intro CW,
   rw cop_win_graph at CW,
   rw cop_number at CW,
@@ -172,7 +236,9 @@ begin
   have min : ∃ n:ℕ , n = Inf{n:ℕ | capture (round CS RS n)},
     apply wcs_min_rounds CS h,
   cases min with w hw,
+  --Divide into cases based on when the capture happens: 
   cases w with w wsucc,
+  --Zero case: If the robber and cop start on the same vertex, then the graph is just a single vertex
   { 
     have zero_in : 0 ∈ {n : ℕ | capture (round CS RS n)},
     { have zero_or : 0 ∈ {n : ℕ | capture (round CS RS n)} ∨ {n : ℕ | capture (round CS RS n)} = ∅,
@@ -202,11 +268,25 @@ begin
     have this: ∀ w, w= CS.cop_init.head,
     { by_contradiction K,
       push_neg at K,
-      --Reverse-engineering dite statements
-      sorry,
+      change _ = (smart_robber G).rob_init _ at hi,
+      have x : rob_init_fn G CS.cop_init ≠ CS.cop_init.head,
+      { unfold rob_init_fn,
+        rw dif_pos K, 
+        by_cases h: ∃ (w : V), ¬G.adj CS.cop_init.head w,
+        { rw dif_pos h,
+          exact rgraph_vtx_neq' CS.cop_init.head h,
+        },
+        rw dif_neg h,
+        push_neg at h,
+        exact some_spec K,
+      },
+      have y : (smart_robber G).rob_init CS.cop_init ≠ rob_init_fn G CS.cop_init,
+        exact ne_of_eq_of_ne hi.symm x.symm,
+      contradiction,
     },
     exact fintype.card_eq_one_of_forall_eq this,
   },
+  --Successor Case: If it takes the cop at least one move, look at second-to-last move of the cop
   have w_cap : capture (round CS RS w.succ),
   {
     have ne: {n : ℕ | capture (round CS RS n)}.nonempty,
@@ -224,19 +304,20 @@ begin
     },
     exact w_in,
   },
+  have w_nocap : ¬ capture (round CS RS w),
+  { suffices : w ∉ {n : ℕ | capture (round CS RS n)},
+    { exact this,},
+    exact and.right ((nat.Inf_upward_closed_eq_succ_iff capt_upwards_closed w).1 hw.symm),
+  },
+  have mid_capt:= mid_round_capt w_nocap w_cap,
   apply or.inr,
   use (round CS RS w).2,
-  rw corner_vtx,
   use (round CS RS w).1.head,
   split,
-  { 
-    by_contradiction sps,
-    simp at sps,
+  { by_contradiction sps, simp at sps,
     have uhoh : capture (round CS RS w),
-    {
-      rw capture,
-      use 0,
-      simp, exact sps,
+    { rw capture,
+      use 0, simp, exact sps,
     },
     have uhoh' : w ∈ {n : ℕ | capture (round CS RS n)} ,
       exact uhoh,
@@ -247,36 +328,30 @@ begin
       exact nat.not_succ_le_self w,
     contradiction,
   },
-  intros v hv,
-  rw neighbor_set' at hv,
-  simp at hv,
-  unfold capture at w_cap,
-  cases w_cap with i hi,
-  have this: i=0,
-    simp,
-  rw this at hi,
-  rw neighbor_set',
-  simp,
-  simp at hi,
-  have w_nocap : ¬ capture (round CS RS w),
-  { 
+  have rob_in_place: (round CS RS w.succ).2 = (round CS RS w).2,
+  { unfold round, simp,
+    exact RS.rob_nocheat (CS.cop_strat (round CS (smart_robber G) w), (round CS (smart_robber G) w).snd) mid_capt,
   },
-  have rob_in_place: (round CS RS w).snd = (round CS RS w.succ).snd,
-  { 
-    have capt: capture (CS.cop_strat (round CS RS w.succ), (round CS RS w).snd),
-    { rw capture,
-      use 0,
-      simp,
-    }
-  }
-  -- have capture: capture (CS.cop_strat (round CS RS (w - 1)), (round CS RS (w - 1)).snd),
-  -- -- {
-  -- --  
-  -- -- },
+  suffices : ¬∃ x, G.adj (round CS RS w).snd x ∧ ¬ G.adj (round CS RS w).fst.head x,
+  { push_neg at this,
+    intros v hv,
+    rw neighbor_set' at hv, simp at hv,
+    specialize this v hv,
+    exact this,
+  },
+  cases w with w wsucc,
+  { by_contradiction K, 
+
+  },
+
+  
+  -- unfold round at rob_in_place,
+  -- simp at rob_in_place,
+  -- change (smart_robber G).rob_strat _  = _ at rob_in_place,
+  -- unfold smart_robber at rob_in_place, simp at rob_in_place,
+
   
 end
-
-
 
 def induced_subgraph (S: set V) (G: refl_graph V) : refl_graph {v:V// v ∈ S} :=
 { adj := λ a b, G.adj a b, 
@@ -287,7 +362,6 @@ def induced_subgraph (S: set V) (G: refl_graph V) : refl_graph {v:V// v ∈ S} :
     apply G.selfloop,
   end  
 }
-
 
 structure retract {c: V} (G: refl_graph V) (H:= induced_subgraph {v: V | v ≠ c} G)  := 
   (f: graph_hom G H)
@@ -300,14 +374,13 @@ def dismantle (G: refl_graph V) : list V → Prop
 
 def dismantlable_graph (G: refl_graph V) := ∃ L, dismantle G L
 
-
 def image_strat {V: Type} [fintype V] [decidable_eq V] [inhabited V] {c:V} {n: ℕ }
 (G: refl_graph V) (H := induced_subgraph  {v: V | v ≠ c} G) (F: retract G H)
 (CS: cop_strat G n)
 : cop_strat H n :=
 {
   cop_init := vector.map (F.f).to_fun CS.cop_init,
-  cop_strat := λ x, vector.map (F.f).to_fun (CS.cop_strat ↑x),
+  cop_strat := λ x, vector.map (F.f).to_fun (CS.cop_strat (x.1.map subtype.val,x.2.val)),
   cop_nocheat :=
   begin
       
@@ -328,7 +401,6 @@ begin
   rw k_cop_win at n_win,
   cases n_win with CS hCS,
   let CS' := cop_strat H n,
-
 end
 
 
