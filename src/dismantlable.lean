@@ -97,19 +97,7 @@ def smart_robber {V: Type} [fintype V] [decidable_eq V] [inhabited V] (G: refl_g
   end,
 }
 
-lemma inits [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V}
-  (CS: cop_strat G 1) (cap: capture (round CS (smart_robber G) 0))
-  :  ((smart_robber G).rob_init CS.cop_init= CS.cop_init.head ) :=
-  begin
-    rw capture at cap,
-    cases cap with i hi,
-    have this: i=0,
-      simp,
-    rw this at hi,
-    simp at hi,
-    exact hi.symm,
-  end
-
+--If the cop strategy is winning, the minimum round of capture is always achieved
 theorem wcs_min_rounds [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {k :ℕ }  
   (CS: cop_strat G k) :
   winning_strat_cop CS → ∀ RS: rob_strat G k, ∃ n:ℕ , n = Inf{n:ℕ | capture (round CS RS n)} :=
@@ -121,6 +109,7 @@ begin
   simp,
 end
 
+--If the cop captures at some round n, then he captures for all m >= n
 theorem capt_upwards_closed [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} : ∀ k1 k2 : ℕ , k1 ≤ k2 → k1 ∈ {n:ℕ | capture (round CS RS n)} → k2 ∈ {n:ℕ | capture (round CS RS n)} :=
 begin
   intros k1 k2 le inc,
@@ -142,6 +131,7 @@ begin
   rw h, exact hyp,
 end
 
+--If the cop did not capture at round w but captured at round w+1, then the capture happened on the cop move
 theorem mid_round_capt [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {w: ℕ } (bef: ¬ capture (round CS (smart_robber G) w)) (aft: capture (round CS (smart_robber G) w.succ)):
 capture (CS.cop_strat (round CS (smart_robber G) w), (round CS (smart_robber G) w).2):=
 begin
@@ -185,6 +175,7 @@ begin
       rw capture at K, simp at K, specialize K 0, simp at K,
       exact K,
     },
+    contradiction,
   },
   --Case 2: The cop vtx is not adjacent to the robber vtx+there is an escape route
   --Then, the robber will move to said vtx and avoid capture
@@ -213,6 +204,44 @@ begin
   },
   contradiction,
 end
+
+--With the same premise as above, the robber does not move on round w+1 in response to cop move.
+lemma rob_in_place [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {w: ℕ } (bef: ¬ capture (round CS (smart_robber G) w)) (aft: capture (round CS (smart_robber G) w.succ)) :
+(round CS (smart_robber G) w.succ).2 = (round CS (smart_robber G) w).2 :=
+begin
+  have mid_capt:= mid_round_capt bef aft,
+  let RS:= smart_robber G, 
+  unfold round, simp,
+    exact RS.rob_nocheat (CS.cop_strat (round CS (smart_robber G) w), (round CS (smart_robber G) w).snd) mid_capt,
+end
+
+
+--A smart robber getting caught at the zeroth round implies graph is only one vertex (is trivially K1 by reflexivity)
+lemma zero_cap_implies_K1 [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V}
+  (CS: cop_strat G 1) (cap: capture (round CS (smart_robber G) 0))
+  :  ((smart_robber G).rob_init CS.cop_init= CS.cop_init.head ) :=
+  begin
+    rw capture at cap,
+    cases cap with i hi,
+    have this: i=0,
+      simp,
+    rw this at hi,
+    simp at hi,
+    exact hi.symm,
+  end
+
+--A smart robber getting caught at the first round implies the graph has a corner
+lemma round1_cap_implies_corner [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V}
+  (CS: cop_strat G 1) (cap: capture (round CS (smart_robber G) 1))
+  : has_corner G :=
+  begin
+    rw has_corner, apply or.inr,
+    rw [capture, round] at cap, cases cap with i cap,
+    have : i=0, simp, rw this at cap, simp at cap,
+    rw smart_robber at cap, simp at cap,
+    sorry,
+  end
+
 
 theorem cwg_has_corner [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V): 
 cop_win_graph G → has_corner G := 
@@ -265,7 +294,7 @@ begin
       exact eq.trans (fintype.card_congr this) fintype.card_unit,
     suffices : fintype.card V = 1,
       exact fintype.equiv_of_card_eq (eq.trans this (fintype.card_unit).symm),
-    have this: ∀ w, w= CS.cop_init.head,
+    have: ∀ w, w= CS.cop_init.head,
     { by_contradiction K,
       push_neg at K,
       change _ = (smart_robber G).rob_init _ at hi,
@@ -340,7 +369,7 @@ begin
     exact this,
   },
   cases w with w wsucc,
-  { by_contradiction K, 
+  { by_contradiction K,
 
   },
 
