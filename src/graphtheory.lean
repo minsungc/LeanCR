@@ -23,7 +23,27 @@ def complete_refl_graph (V: Type) : refl_graph V :=
   selfloop := λ u, trivial }
 
 open_locale classical
-lemma rgraph_vtx_neq {V: Type} (G: refl_graph V) (v: V) (h: ∃ (w : V), ¬G.adj v w) 
+
+lemma rgraph_adj_eq_trans {V: Type} {G: refl_graph V} {v w x: V} (P: G.adj v w) (Q: w=x) : G.adj v x :=
+begin
+  rw Q.symm, exact P,
+end
+
+lemma rgraph_vtx_neq {V: Type} {x: V} {G: refl_graph V} (v: V) (h: ∃ (w : V), G.adj x w ∧ ¬G.adj v w) 
+: some h ≠ v :=
+begin
+  have h': ¬G.adj v (some h),
+    exact and.right (some_spec h),
+  have refl: G.adj v v,
+    exact G.selfloop v,
+  by_contradiction C,
+  simp at C,
+  have cnt: G.adj v (some h),
+    exact eq.subst C.symm refl,
+  contradiction,
+end
+
+lemma rgraph_vtx_neq' {V: Type} {G: refl_graph V} (v: V) (h: ∃ (w : V),  ¬G.adj v w) 
 : some h ≠ v :=
 begin
   have h': ¬G.adj v (some h),

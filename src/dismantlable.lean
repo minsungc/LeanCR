@@ -27,12 +27,6 @@ def corner_cmp (G: refl_graph V) (v w: V)  : Prop :=
 
 open_locale classical
 noncomputable theory 
- 
-
-def rob_init_fn {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : vector V 1 → V := 
- λ x, if h : ∃ w, w ≠ x.head then 
- (if g: ∃ w, ¬ G.adj x.head w then some g else some h)
- else x.head
 
 def rob_strat_fn {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : vector V 1 × V → V :=
   λ x , if h : ∃ w, G.adj x.2 w ∧ ¬ G.adj x.1.head w then some h else x.2
@@ -65,17 +59,20 @@ begin
   apply G.selfloop,
 end
 
+def rob_init_fn {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : vector V 1 → V := 
+ λ x, if h : ∃ w, w ≠ x.head then 
+ (if g: ∃ w, ¬ G.adj x.head w then some g else some h)
+ else x.head
+
 def smart_robber {V: Type} [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V) : rob_strat G 1
 :=
-{
-  rob_init:= rob_init_fn G,
+{ rob_init:= rob_init_fn G,
   rob_strat:= λ x , if h : ∃ w, G.adj x.2 w ∧ ¬ G.adj x.1.head w then some h else x.2,
   rob_nocheat:=
   begin
     intros K hyp,
     have hyp' : ¬∃ w, G.adj K.2 w ∧ ¬ G.adj K.1.head w,
-    {
-      by_contradiction sps,
+    { by_contradiction sps,
       rw capture at hyp,
       cases hyp with w hw,
       have this: w=0,
@@ -123,9 +120,9 @@ begin
     exact CS.cop_nocheat (round CS RS k1) hyp,
   have h: round CS RS k1.succ = round CS RS k1,
   { unfold round,
-    erw c_nocheat,
+    rw c_nocheat,
     simp,
-    erw r_nocheat,
+    rw r_nocheat,
     simp,
   },
   rw h, exact hyp,
@@ -212,7 +209,7 @@ begin
   have mid_capt:= mid_round_capt bef aft,
   let RS:= smart_robber G, 
   unfold round, simp,
-    exact RS.rob_nocheat (CS.cop_strat (round CS (smart_robber G) w), (round CS (smart_robber G) w).snd) mid_capt,
+  exact RS.rob_nocheat (CS.cop_strat (round CS (smart_robber G) w), (round CS (smart_robber G) w).snd) mid_capt,
 end
 
 
@@ -230,16 +227,44 @@ lemma zero_cap_implies_K1 [fintype V] [decidable_eq V] [inhabited V] {G: refl_gr
     exact hi.symm,
   end
 
+lemma cop_adj_rob [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {n:ℕ }
+  {CS: cop_strat G 1} (nocap: ¬ capture (round CS (smart_robber G) n)) (cap: capture (round CS (smart_robber G) n.succ))
+: G.adj (round CS (smart_robber G) n).1.head (round CS (smart_robber G) n).2 :=
+begin
+  let rip := rob_in_place nocap cap, 
+  unfold capture at cap,
+  cases cap with i hi,
+  have :i=0, simp, rw this at hi, simp at hi,
+  have adj: G.adj (round CS (smart_robber G) n).1.head (round CS (smart_robber G) n.succ).1.head,
+  { let adj' := CS.cop_legal 0 (round CS (smart_robber G) n).2 (round CS (smart_robber G) n).1,
+    simp at adj', 
+    have h : (CS.cop_strat (round CS (smart_robber G) n)).nth 0 = (round CS (smart_robber G) n.succ).1.head,
+      unfold round, simp,
+    simp at h, 
+    exact rgraph_adj_eq_trans adj' h,
+  },
+  exact rgraph_adj_eq_trans adj (eq.trans hi rip),
+end
+
 --A smart robber getting caught at the first round implies the graph has a corner
 lemma round1_cap_implies_corner [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V}
-  (CS: cop_strat G 1) (cap: capture (round CS (smart_robber G) 1))
+  {CS: cop_strat G 1} (nocap: ¬ capture (round CS (smart_robber G) 0)) (cap: capture (round CS (smart_robber G) 1))
   : has_corner G :=
   begin
     rw has_corner, apply or.inr,
-    rw [capture, round] at cap, cases cap with i cap,
-    have : i=0, simp, rw this at cap, simp at cap,
-    rw smart_robber at cap, simp at cap,
-    sorry,
+    use (round CS (smart_robber G) 0).2,
+    use (round CS (smart_robber G) 0).1.head,
+    split,
+    { by_contradiction K,
+      have :  capture (round CS (smart_robber G) 0),
+        { unfold capture, use 0,
+          simp, simp at K, exact K,},
+      contradiction, 
+    },
+    intros v hv, unfold neighbor_set' at hv, simp at hv,
+    unfold neighbor_set', simp,
+    by_contradiction K,
+    
   end
 
 
