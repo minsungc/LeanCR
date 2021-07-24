@@ -29,6 +29,22 @@ begin
   rw Q.symm, exact P,
 end
 
+lemma rgraph_nadj_imp_neq {V: Type} {G: refl_graph V} {v w: V} (P: ¬ G.adj v w) : v ≠ w :=
+begin
+  by_contradiction K,
+  simp at K,
+  let P' := rgraph_adj_eq_trans (G.selfloop v) K,
+  contradiction,
+end
+
+lemma rgraph_adj_cmp {V: Type} {G: refl_graph V} {v w x: V} (P: ¬ G.adj v w) (Q: G.adj v x): w ≠ x :=
+begin
+  by_contradiction K,
+  simp at K,
+  let P' := rgraph_adj_eq_trans Q K.symm,
+  contradiction,
+end
+
 lemma rgraph_vtx_neq {V: Type} {x: V} {G: refl_graph V} (v: V) (h: ∃ (w : V), G.adj x w ∧ ¬G.adj v w) 
 : some h ≠ v :=
 begin
@@ -125,19 +141,16 @@ def equivgraph {V W: Type} (G  : refl_graph V) (H: refl_graph W)  : Prop := none
 notation G `≅` H  := equivgraph G H
 
 def identity_iso {V: Type} (G: refl_graph V) : graph_iso G G:=
-{
-  to_fun:= λ x,x,
+{ to_fun:= λ x,x,
   bij:= 
     begin
       unfold function.bijective,
       split, 
-      {
-        intros x y,
+      { intros x y,
         intros h,
         apply h,
       },
-      {
-        intro x,
+      { intro x,
         use x,
       },
     end,
