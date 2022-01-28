@@ -12,6 +12,8 @@ We define reflexive graphs as a refstraAlexive symmetric relation on a vertex ty
 open finset
 open classical
 
+noncomputable theory
+
 structure refl_graph (V: Type):=
 (adj : V → V → Prop) 
 (sym : symmetric adj)
@@ -183,10 +185,11 @@ structure rob_strat {V: Type} [fintype V] (G: refl_graph V) (n : ℕ ) :=
 (rob_legal: ∀ v P, G.adj v (rob_strat (P,v)))
 
 
-def round {V: Type} [fintype V] {G: refl_graph V} {k : ℕ } (CS: cop_strat G k) (RS: rob_strat G k) : ℕ → vector V k × V
+noncomputable def round {V: Type} [fintype V] {G: refl_graph V} {k : ℕ } (CS: cop_strat G k) (RS: rob_strat G k) : ℕ → vector V k × V
 | 0 := (CS.cop_init, RS.rob_init (CS.cop_init))
-| (n+1) := (CS.cop_strat (round n), 
-            RS.rob_strat(CS.cop_strat (round n), (round n).2))
+| (n+1) := if n+1%2 ==0 
+           then ((round n).1, RS.rob_strat (round n)) 
+           else (CS.cop_strat (round n), (round n).2)
 
 def winning_strat_cop {V: Type} [fintype V] {G: refl_graph V} {k :ℕ } 
 (CS: cop_strat G k) := 
@@ -203,14 +206,11 @@ structure cr_game {V: Type} [fintype V] (G: refl_graph V) (n : ℕ ):=
 (cop_strat: cop_strat G n)
 (rob_strat: rob_strat G n)
 
-
 def cop_number {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) := 
   Inf {k : ℕ | k_cop_win G k}
 
 def cop_win_graph {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) := cop_number G = 1
 
----------------------------------------------------------------------------------------------------------
-noncomputable theory
 
 
 def enum_elts (V: Type) [fintype V] [decidable_eq V]: fin (fintype.card V) ≃ V :=
@@ -375,28 +375,9 @@ begin
       intro RS,
       use 1,
       use 0,
-      let I := round CW_strat RS 0,
-      have cap: capture (CW_strat.cop_strat I,I.2),
-      {
-        unfold capture,
-        use 0,
-        simp,
-        refl,
-      },
-      have eq: I.2 = (round CW_strat RS 1).1.nth 0,
-      {
-        unfold round,
-        simp,
-        refl,
-      },
-      have eq' : I.2 = (round CW_strat RS 1).2,
-      {
-        unfold round,
-        simp,
-        let C:= RS.rob_nocheat (CW_strat.cop_strat I,I.2) cap,
-        exact C.symm,
-      }, 
-      exact trans (symm eq) eq',
+      rw round, simp,
+      rw round,
+      refl,
     },
     simp,
     use CW_strat,
@@ -409,18 +390,3 @@ begin
   linarith,
 end
 
-lemma complete_refl_graph_cop_win' (V: Type) [fintype V] [decidable_eq V] [inhabited V] : cop_win_graph (complete_refl_graph V) :=
-begin
-  rw [cop_win_graph, cop_number],
-  have leq: Inf {k : ℕ | k_cop_win (complete_refl_graph V) k} ≤ 1,
-  { apply nat.Inf_le,
-    use [complete_strategy V],
-    intro RS,
-    use [1, 0],
-    symmetry, transitivity, apply RS.rob_nocheat,
-    { use [0, rfl] },
-    refl },
-  have ge : Inf {k : ℕ | k_cop_win (complete_refl_graph V) k} > 0,
-    exact zero_cops_cant_win (complete_refl_graph V),
-  linarith,
-end
