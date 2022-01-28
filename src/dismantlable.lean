@@ -141,26 +141,46 @@ end
 
 lemma or_iff_right {a b : Prop} (ha : ¬ a) : a ∨ b ↔ b := ⟨λ h, h.resolve_left ha, or.inr⟩
 
-theorem mod2_zero_or_one : ∀ n : ℕ, n%2=1 ∨ n%2=0 :=
+lemma mod2_zero_or_one : ∀ n : ℕ, n%2=1 ∨ n%2=0 :=
 begin
   intro n,
   rw nat.even_iff.symm, rw nat.odd_iff.symm,
   exact (nat.even_or_odd n).symm,
 end
 
-theorem smart_capture_cop_move [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (cap :capture (round CS (smart_robber G) n)) (gt: n > 0) : n%2=1 :=
+-- A smart robber staying in place implies they will get caught on the next turn
+-- theorem smart_place_next_cap [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} : 
+
+-- A smart robber will never get caught on their own turn
+theorem smart_capture_cop_move [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 0) : n%2=1 :=
 begin
+  rw winning_strat_cop at p, specialize p (smart_robber G), 
+  have non: {n:ℕ | capture (round CS (smart_robber G) n)}.nonempty,
+    rw set.nonempty_def, simp, exact p,
   by_contradiction K, 
   have K': n%2=0,
     exact (or_iff_right K).1 (mod2_zero_or_one n),
-  have n_is_succ : (∃ m : ℕ, m.succ = n),
-    use n.pred, 
-    have this: n ≠ 0, linarith,
-    rw nat.succ_eq_one_add, rw nat.pred_eq_sub_one, 
+  have pred_no_cap: ∀ m < n, ¬ capture (round CS (smart_robber G) m),
+    intros m h, rw cap at h, exact nat.not_mem_of_lt_Inf h,
+  have cap' : capture (round CS (smart_robber G) n),
+    let x := nat.Inf_mem non, rw cap.symm at x, exact x,
+  clear cap,
+  specialize pred_no_cap n.pred,
+  have this : n.pred < n,
+    suffices this :n ≠ 0, exact nat.pred_lt this, linarith,
+  specialize pred_no_cap this, clear this,
+  suffices goal : (round CS (smart_robber G) n).1.head ≠ (round CS (smart_robber G) n).2,
+    have nocap_atn : ¬ capture (round CS (smart_robber G) n),
+      rw capture, push_neg, intro i, have this: i=0, simp, rw this, simp, exact goal,
+    contradiction,
+  have rob_in_place: (smart_robber G).rob_strat (round CS (smart_robber G) n.pred) = (round CS (smart_robber G) n.pred).2,
+    rw smart_robber, simp,
+    -- Issue: simplifying smart_robber for only specific instances,
     sorry,
-  unfold capture at cap, 
-  cases cap with i cap, have this: i=0, simp, rw this at cap, simp at cap,
-  cases n_is_succ with m succ,
+  unfold capture at cap', unfold capture at pred_no_cap, push_neg at pred_no_cap,
+  specialize pred_no_cap 0,
+  cases cap' with i cap', have this: i=0, simp, rw this at cap', clear this, clear i,
+  -- rw for round fails and not sure why
   sorry,
 end
 
