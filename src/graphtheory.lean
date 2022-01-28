@@ -184,10 +184,9 @@ structure rob_strat {V: Type} [fintype V] (G: refl_graph V) (n : ℕ ) :=
 (rob_nocheat: ∀ K,  capture K → rob_strat K = K.2)
 (rob_legal: ∀ v P, G.adj v (rob_strat (P,v)))
 
-
 noncomputable def round {V: Type} [fintype V] {G: refl_graph V} {k : ℕ } (CS: cop_strat G k) (RS: rob_strat G k) : ℕ → vector V k × V
 | 0 := (CS.cop_init, RS.rob_init (CS.cop_init))
-| (n+1) := if n+1%2 ==0 
+| (n+1) := if n+1%2 =0 
            then ((round n).1, RS.rob_strat (round n)) 
            else (CS.cop_strat (round n), (round n).2)
 
@@ -212,6 +211,16 @@ def cop_number {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) :=
 def cop_win_graph {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) := cop_number G = 1
 
 
+lemma not_cap_iff_diff_vtx {V: Type} [fintype V] {G: refl_graph V} {k : ℕ }{CS: cop_strat G k} {RS: rob_strat G k} : ∀ n : ℕ , ¬ capture (round CS RS n) ↔ ∀ i : fin k, (round CS RS n).1.nth i ≠ (round CS RS n).2 :=
+begin
+  intros n,
+  split,
+  intros h i, 
+  by_contradiction K, push_neg at K,
+  have this: capture (round CS RS n),
+    use i, exact K,
+  contradiction, contrapose, push_neg, intro h, exact h,
+end
 
 def enum_elts (V: Type) [fintype V] [decidable_eq V]: fin (fintype.card V) ≃ V :=
 (fintype.equiv_fin V).symm
@@ -227,7 +236,6 @@ begin
   exact hi,
 end
 
-/-TODO: Two cops on the same vector?-/
 def trivial_strategy {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : cop_strat G (fintype.card V) :=
 {
   cop_init :=  vector.of_fn (enum_elts V),
