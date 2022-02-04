@@ -13,6 +13,7 @@ open finset
 open classical
 
 noncomputable theory
+open_locale classical
 
 structure refl_graph (V: Type):=
 (adj : V → V → Prop) 
@@ -24,7 +25,7 @@ def complete_refl_graph (V: Type) : refl_graph V :=
   sym := λ u v h,  trivial ,
   selfloop := λ u, trivial }
 
-open_locale classical
+-- open_locale classical
 
 lemma rgraph_adj_eq_trans {V: Type} {G: refl_graph V} {v w x: V} (P: G.adj v w) (Q: w=x) : G.adj v x :=
 begin
@@ -33,6 +34,7 @@ end
 
 lemma rgraph_nadj_imp_neq {V: Type} {G: refl_graph V} {v w: V} (P: ¬ G.adj v w) : v ≠ w :=
 begin
+  classical,
   by_contradiction K,
   simp at K,
   let P' := rgraph_adj_eq_trans (G.selfloop v) K,
@@ -41,6 +43,7 @@ end
 
 lemma rgraph_adj_cmp {V: Type} {G: refl_graph V} {v w x: V} (P: ¬ G.adj v w) (Q: G.adj v x): w ≠ x :=
 begin
+  classical,
   by_contradiction K,
   simp at K,
   let P' := rgraph_adj_eq_trans Q K.symm,
@@ -186,7 +189,7 @@ structure rob_strat {V: Type} [fintype V] (G: refl_graph V) (n : ℕ ) :=
 
 noncomputable def round {V: Type} [fintype V] {G: refl_graph V} {k : ℕ } (CS: cop_strat G k) (RS: rob_strat G k) : ℕ → vector V k × V
 | 0 := (CS.cop_init, RS.rob_init (CS.cop_init))
-| (n+1) := if n+1%2 =0 
+| (n+1) := if (n+1) %2 =0 
            then ((round n).1, RS.rob_strat (round n)) 
            else (CS.cop_strat (round n), (round n).2)
 

@@ -1,4 +1,5 @@
 import graphtheory
+import tactic
 import data.set
 import data.nat.basic
 import data.nat.modeq
@@ -126,7 +127,7 @@ begin
   suffices : ∀ k1, k1 ∈ {n:ℕ | capture (round CS RS n)} → k1.succ ∈ {n:ℕ | capture (round CS RS n)},
   { exact nat.le_rec_on le this inc,},
   intros k1 hyp,
-  simp at hyp, simp,
+  simp at hyp, simp, 
   have r_nocheat: RS.rob_strat (round CS RS k1) = (round CS RS k1).2,
     exact RS.rob_nocheat (round CS RS k1) hyp,
   have c_nocheat: CS.cop_strat (round CS RS k1) = (round CS RS k1).1,
@@ -135,6 +136,10 @@ begin
   { unfold round,
     rw c_nocheat,
     simp,
+    intro h, 
+    have this: (round CS RS (k1+1)) = ((round CS RS k1).fst, RS.rob_strat (round CS RS k1)),
+      rw round, rw if_pos h,
+      
   },
   rw h, exact hyp,
 end
@@ -147,9 +152,6 @@ begin
   rw nat.even_iff.symm, rw nat.odd_iff.symm,
   exact (nat.even_or_odd n).symm,
 end
-
--- A smart robber staying in place implies they will get caught on the next turn
--- theorem smart_place_next_cap [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} : 
 
 -- A smart robber will never get caught on their own turn
 theorem smart_capture_cop_move [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 0) : n%2=1 :=
@@ -174,14 +176,51 @@ begin
       rw capture, push_neg, intro i, have this: i=0, simp, rw this, simp, exact goal,
     contradiction,
   have rob_in_place: (smart_robber G).rob_strat (round CS (smart_robber G) n.pred) = (round CS (smart_robber G) n.pred).2,
-    rw smart_robber, simp,
-    -- Issue: simplifying smart_robber for only specific instances,
-    sorry,
+    cases n, contradiction, rw (nat.pred_succ n),
+    suffices this: ¬ (∃ (w : V), G.adj (round CS (smart_robber G) n).snd w ∧ ¬G.adj (round CS (smart_robber G) n).fst.head w),
+      conv {
+        to_lhs, congr, rw smart_robber, --command 'skip' to get 3rd rw 
+      }, simp, rw dif_neg this, clear K,
+    by_contradiction K, 
+    have contradiction: ¬ capture (round CS (smart_robber G) n.succ),
+      have this : (smart_robber G).rob_strat (round CS (smart_robber G) n) = some K,
+        conv {
+          to_lhs, congr, rw smart_robber, 
+        }, simp, rw dif_pos K,
+      rw capture, push_neg, intro i, have this: i=0, simp, rw this, clear this, clear i, simp,
+      unfold round, rw (nat.add_one n).symm at K', rw if_pos K', simp, rw this, clear this,
+      suffices this: ¬G.adj (round CS (smart_robber G) n).fst.head (some K),
+        exact rgraph_nadj_imp_neq this,
+      exact and.elim_right (classical.some_spec K),
+    contradiction,
   unfold capture at cap', unfold capture at pred_no_cap, push_neg at pred_no_cap,
   specialize pred_no_cap 0,
   cases cap' with i cap', have this: i=0, simp, rw this at cap', clear this, clear i,
-  -- rw for round fails and not sure why
-  sorry,
+  cases n, contradiction,
+  rw round, rw (nat.add_one n).symm at K', rewrite if_pos K', simp,
+  rw (nat.pred_succ n) at rob_in_place, rw (nat.pred_succ n) at pred_no_cap, 
+  simp at pred_no_cap, rw rob_in_place.symm at pred_no_cap, exact pred_no_cap, 
+end
+
+--A smart robber will stay in place before cop captures.
+theorem smart_rob_in_place [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 1) : (round CS (smart_robber G) n.pred.pred).2  = (round CS (smart_robber G) n.pred).2 :=
+begin
+ cases n, let x := nat.not_lt_zero 1, contradiction,
+ cases n, let x := nat.lt_irrefl 1, contradiction,
+ rw nat.pred_succ (n.succ), rw nat.pred_succ n,
+end
+
+lemma if_one_mod2_not_zero (n : ℕ ) : n%2 = 1 → ¬ (n % 2 = 0) :=
+begin
+  intro h, linarith,
+end
+
+lemma if_succ_one_mod2_zero {n : ℕ } : n.succ%2 = 1 → n % 2 = 0 :=
+begin
+  intro h, rw nat.odd_iff.symm at h,
+  have this: odd n.succ → even n,
+    contrapose, rw (nat.even_iff_not_odd).symm, exact nat.even_succ.2,
+  exact nat.even_iff.1 (this h),
 end
 
 theorem cwg_has_corner [complete_semilattice_Inf ℕ] [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V): 
@@ -265,9 +304,10 @@ begin
   have w_succ_odd: w.succ%2=1,
     have this: w.succ>0,
       exact nat.succ_pos',
-    exact smart_capture_cop_move cap this,
+    exact smart_capture_cop_move h hw this,
   rw [capture, round] at cap, cases cap with i cap, 
-  have this: i=0, simp, rw this at cap, simp at cap, 
+  have this: i=0, simp, rw this at cap, clear this, clear i, simp at cap, 
+  rw if_neg ((if_one_mod2_not_zero w.succ) w_succ_odd) at cap, simp at cap,
   unfold corner_vtx,
   by_contradiction K,
   push_neg at K, 
@@ -285,12 +325,10 @@ begin
   unfold neighbor_set' at K, simp at K,
   have this : ¬ capture (round CS RS w.succ),
     rw [capture, round], simp, intro x, 
-    have this : x=0, simp, rw this,
-    have rob_move: (RS.rob_strat (round CS RS w)) = some K,
-      change ((smart_robber G).rob_strat (round CS RS w)) = some K,
-      unfold smart_robber,simp,
-      rw dif_pos K,
-      sorry,
+    have this : x=0, simp, rw this, clear this, clear x,
+    rw if_neg ((if_one_mod2_not_zero w.succ) w_succ_odd), simp,
+    have this : w % 2 = 0, exact if_succ_one_mod2_zero w_succ_odd,
+    sorry, --Need some way to argue about the predecessor of w
   have that : capture (round CS RS w.succ),
   {
     have ne: {n : ℕ | capture (round CS RS n)}.nonempty,
