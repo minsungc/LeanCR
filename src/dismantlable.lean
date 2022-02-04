@@ -120,6 +120,19 @@ begin
   simp,
 end
 
+--Simple lemma for reasoning
+lemma cop_catch_nonempty [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} {win : winning_strat_cop CS}{k : ℕ } (cap : k = Inf{n:ℕ | capture (round CS RS n)}) : capture (round CS RS k) ∧ ∀ i < k, ¬ capture (round CS RS i) :=
+begin
+  split,
+  suffices this : {n_1 : ℕ | capture (round CS RS n_1)}.nonempty,
+    let x := nat.Inf_mem this, rw cap.symm at x, exact x,
+  rw winning_strat_cop at win, specialize win RS, cases win with w win, exact set.nonempty_of_mem win,
+  intros i h, rw cap at h, exact nat.not_mem_of_lt_Inf h,
+end
+
+lemma odd_succ {n : ℕ} : odd n.succ ↔ ¬ odd n := 
+by rw [succ_eq_add_one, odd_add]; simp [not_even_one]
+
 --If the cop captures at some round n, then he captures for all m >= n
 theorem capt_upwards_closed [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} : ∀ k1 k2 : ℕ , k1 ≤ k2 → k1 ∈ {n:ℕ | capture (round CS RS n)} → k2 ∈ {n:ℕ | capture (round CS RS n)} :=
 begin
@@ -127,21 +140,22 @@ begin
   suffices : ∀ k1, k1 ∈ {n:ℕ | capture (round CS RS n)} → k1.succ ∈ {n:ℕ | capture (round CS RS n)},
   { exact nat.le_rec_on le this inc,},
   intros k1 hyp,
-  simp at hyp, simp, 
-  have r_nocheat: RS.rob_strat (round CS RS k1) = (round CS RS k1).2,
-    exact RS.rob_nocheat (round CS RS k1) hyp,
-  have c_nocheat: CS.cop_strat (round CS RS k1) = (round CS RS k1).1,
-    exact CS.cop_nocheat (round CS RS k1) hyp,
-  have h: round CS RS k1.succ = round CS RS k1,
-  { unfold round,
-    rw c_nocheat,
-    simp,
-    intro h, 
-    have this: (round CS RS (k1+1)) = ((round CS RS k1).fst, RS.rob_strat (round CS RS k1)),
-      rw round, rw if_pos h,
-      
-  },
-  rw h, exact hyp,
+  simp at hyp, clear inc, simp, 
+  cases k1, unfold capture, unfold round, simp, 
+  let nocheat := CS.cop_nocheat (round CS RS 0) hyp,
+  rw [capture, round] at hyp, cases hyp with m hyp, simp at hyp,
+  use m, conv {
+  to_rhs, rw hyp.symm,  
+  }, unfold round at nocheat, rw nocheat,
+  cases (nat.even_or_odd k1_1.succ), 
+  rw [nat.even_iff_not_odd, odd_succ.symm, nat.odd_iff_not_even, nat.even_iff] at h,
+  let nocheat := CS.cop_nocheat (round CS RS k1_1.succ) hyp,
+  rw capture at hyp, cases hyp with m hyp, use m,
+  rw [(nat.one_add k1_1.succ).symm, nat.add_comm] at h, rw round, rw if_neg h, clear h, simp, rw [nocheat, hyp],
+  rw [nat.odd_iff_not_even, nat.even_succ.symm, nat.even_iff] at h,
+  let nocheat := RS.rob_nocheat (round CS RS k1_1.succ) hyp,
+  rw capture at hyp, cases hyp with m hyp, use m,
+  rw [(nat.one_add k1_1.succ).symm, nat.add_comm] at h, rw round, rw if_pos h, clear h, simp, rw [nocheat, hyp],
 end
 
 lemma or_iff_right {a b : Prop} (ha : ¬ a) : a ∨ b ↔ b := ⟨λ h, h.resolve_left ha, or.inr⟩
@@ -151,6 +165,18 @@ begin
   intro n,
   rw nat.even_iff.symm, rw nat.odd_iff.symm,
   exact (nat.even_or_odd n).symm,
+end
+
+lemma even_succ_succ : ∀ n : ℕ, even n.succ.succ ↔ even n :=
+begin
+  intro n, 
+  rw [nat.even_succ, nat.odd_iff_not_even.symm, odd_succ, nat.even_iff_not_odd.symm],
+end
+
+lemma odd_succ_succ : ∀ n : ℕ, odd n.succ.succ ↔ odd n :=
+begin
+  intro n, 
+  rw [odd_succ, nat.even_iff_not_odd.symm, nat.even_succ, nat.odd_iff_not_even.symm],
 end
 
 -- A smart robber will never get caught on their own turn
@@ -207,7 +233,17 @@ theorem smart_rob_in_place [fintype V] [decidable_eq V] [inhabited V] {G: refl_g
 begin
  cases n, let x := nat.not_lt_zero 1, contradiction,
  cases n, let x := nat.lt_irrefl 1, contradiction,
- rw nat.pred_succ (n.succ), rw nat.pred_succ n,
+ rw nat.pred_succ (n.succ), rw nat.pred_succ n, 
+ let cap' := cop_catch_nonempty cap, 
+ cases (nat.even_or_odd n.succ.succ),
+ rw [nat.even_succ, nat.even_iff, nat.succ_eq_add_one] at h, 
+ conv { to_rhs, rw round, }, rw if_neg h,
+ rw [odd_succ, nat.odd_iff_not_even, nat.succ_eq_add_one, nat.even_iff] at h, push_neg at h, 
+ conv { to_rhs, rw round, }, rw if_pos h, simp, 
+ conv { to_rhs, rw smart_robber, }, simp,
+ sorry, -- Need to prove that robber has nowhere to go, can do through
+ -- contradiction and deriving that robber can't get captured in time
+ exact p,
 end
 
 lemma if_one_mod2_not_zero (n : ℕ ) : n%2 = 1 → ¬ (n % 2 = 0) :=
