@@ -1,9 +1,10 @@
 import data.fintype.basic
-import data.sym2
+import data.sym.sym2
 import data.list
 import data.set.basic
 import order.conditionally_complete_lattice
-import system.random.basic
+import init.logic
+
 
 /-
 Reflexive Graphs:
@@ -26,6 +27,10 @@ def complete_refl_graph (V: Type) : refl_graph V :=
   selfloop := λ u, trivial }
 
 -- open_locale classical
+@[symm] lemma rgraph_adj_symm {V: Type} {G: refl_graph V} {v w : V} : G.adj v w ↔ G.adj w v :=
+begin
+  split, intro x, exact G.sym x, intro y, exact G.sym y,
+end
 
 lemma rgraph_adj_eq_trans {V: Type} {G: refl_graph V} {v w x: V} (P: G.adj v w) (Q: w=x) : G.adj v x :=
 begin
@@ -212,6 +217,11 @@ def cop_number {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) :=
   Inf {k : ℕ | k_cop_win G k}
 
 def cop_win_graph {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) := cop_number G = 1
+
+def capture_time {V: Type} [fintype V] [has_Inf ℕ] {G: refl_graph V} {n : ℕ} (CS: cop_strat G n) (RS: rob_strat G n) := Inf{k :ℕ | capture (round CS RS k)}
+
+lemma cop_win_min_cap_time {V: Type} [fintype V] [has_Inf ℕ] {G: refl_graph V} {n : ℕ} {CS: cop_strat G n} {RS: rob_strat G n} : winning_strat_cop CS → ∃ n: ℕ, n = capture_time CS RS := begin simp, end
+
 
 
 lemma not_cap_iff_diff_vtx {V: Type} [fintype V] {G: refl_graph V} {k : ℕ }{CS: cop_strat G k} {RS: rob_strat G k} : ∀ n : ℕ , ¬ capture (round CS RS n) ↔ ∀ i : fin k, (round CS RS n).1.nth i ≠ (round CS RS n).2 :=

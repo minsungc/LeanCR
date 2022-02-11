@@ -1,8 +1,8 @@
 [package]
 name = "LeanCR"
 version = "0.1"
-lean_version = "leanprover-community/lean:3.30.0"
+lean_version = "leanprover-community/lean:3.39.1"
 path = "src"
 
 [dependencies]
-mathlib = {git = "https://github.com/leanprover-community/mathlib", rev = "91a547ee1140a7a9a9e0f13fead27a44a644a551"}
+mathlib = {git = "https://github.com/leanprover-community/mathlib", rev = "8c60a9270b26c63b1492845d39cd8258418fa64a"}

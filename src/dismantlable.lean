@@ -234,15 +234,26 @@ begin
  cases n, let x := nat.not_lt_zero 1, contradiction,
  cases n, let x := nat.lt_irrefl 1, contradiction,
  rw nat.pred_succ (n.succ), rw nat.pred_succ n, 
- let cap' := cop_catch_nonempty cap, 
+ let cap' := and.left (cop_catch_nonempty cap), 
  cases (nat.even_or_odd n.succ.succ),
  rw [nat.even_succ, nat.even_iff, nat.succ_eq_add_one] at h, 
  conv { to_rhs, rw round, }, rw if_neg h,
  rw [odd_succ, nat.odd_iff_not_even, nat.succ_eq_add_one, nat.even_iff] at h, push_neg at h, 
  conv { to_rhs, rw round, }, rw if_pos h, simp, 
- conv { to_rhs, rw smart_robber, }, simp,
- sorry, -- Need to prove that robber has nowhere to go, can do through
- -- contradiction and deriving that robber can't get captured in time
+ conv { to_rhs, congr,rw smart_robber, }, simp,
+ suffices this : ¬ ∃ (w : V), G.adj (round CS (smart_robber G) n).snd w ∧ ¬G.adj (round CS (smart_robber G) n).fst.head w,
+  rw dif_neg this,
+ by_contradiction K,
+ have this: ¬ capture (round CS (smart_robber G) n.succ.succ),
+  have this : (smart_robber G).rob_strat (round CS (smart_robber G) n) = some K,
+    conv {
+      to_lhs, congr, rw smart_robber, 
+    }, simp, rw dif_pos K,
+  rw capture, push_neg, intro i, have this: i=0, simp, rw this, clear this, clear i, simp, 
+  rw round, have this : ¬(n.succ + 1) % 2 = 0, rw [(nat.succ_eq_add_one n.succ).symm, nat.even_iff.symm, nat.odd_iff_not_even.symm], rw [nat.even_iff.symm,(nat.succ_eq_add_one n).symm, nat.even_iff_not_odd] at h, 
+  exact odd_succ.2 h,
+  rw if_neg this, simp,
+ contradiction,
  exact p,
 end
 
