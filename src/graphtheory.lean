@@ -4,6 +4,8 @@ import data.list
 import data.set.basic
 import order.conditionally_complete_lattice
 import init.logic
+import init.data.nat
+import data.nat.lattice
 
 
 /-
@@ -41,7 +43,6 @@ lemma rgraph_nadj_imp_neq {V: Type} {G: refl_graph V} {v w: V} (P: ¬ G.adj v w)
 begin
   classical,
   by_contradiction K,
-  simp at K,
   let P' := rgraph_adj_eq_trans (G.selfloop v) K,
   contradiction,
 end
@@ -50,7 +51,6 @@ lemma rgraph_adj_cmp {V: Type} {G: refl_graph V} {v w x: V} (P: ¬ G.adj v w) (Q
 begin
   classical,
   by_contradiction K,
-  simp at K,
   let P' := rgraph_adj_eq_trans Q K.symm,
   contradiction,
 end
@@ -63,7 +63,6 @@ begin
   have refl: G.adj v v,
     exact G.selfloop v,
   by_contradiction C,
-  simp at C,
   have cnt: G.adj v (some h),
     exact eq.subst C.symm refl,
   contradiction,
@@ -77,7 +76,6 @@ begin
   have refl: G.adj v v,
     exact G.selfloop v,
   by_contradiction C,
-  simp at C,
   have cnt: G.adj v (some h),
     exact eq.subst C.symm refl,
   contradiction,
@@ -229,7 +227,7 @@ begin
   intros n,
   split,
   intros h i, 
-  by_contradiction K, push_neg at K,
+  by_contradiction K,
   have this: capture (round CS RS n),
     use i, exact K,
   contradiction, contrapose, push_neg, intro h, exact h,
@@ -302,7 +300,7 @@ def zero_cop_robber_strategy {V: Type} [fintype V] [decidable_eq V] [inhabited V
   end
 }
 
-lemma zero_cops_cant_win {V: Type} [fintype V] [decidable_eq V][inhabited V]  :
+lemma zero_cops_cant_win {V: Type} [fintype V][has_Inf ℕ][decidable_eq V][inhabited V]  :
   ∀ G : refl_graph V, 0<cop_number G :=
 begin
   intro G,
@@ -315,8 +313,7 @@ begin
     exact h H,
   },
   rw cop_number at zero_cops,
-  have Inf_zero : 0 ∈ {k : ℕ | k_cop_win G k} ∨ {k : ℕ | k_cop_win G k} = ∅,
-    apply (nat.Inf_eq_zero).1 zero_cops,
+  rw nat.Inf_eq_zero at zero_cops, 
   cases Inf_zero with H1 H2,
   { have zero_win : k_cop_win G 0,
       apply' H1,
