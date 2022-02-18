@@ -151,7 +151,7 @@ begin
   split,
   suffices this : {n_1 : ℕ | capture (round CS RS n_1)}.nonempty,
     let x := nat.Inf_mem this, rw cap.symm at x, exact x,
-  rw winning_strat_cop at win, specialize win RS, cases win with w win, exact set.nonempty_of_mem win,
+  specialize win RS, cases win with w win, exact set.nonempty_of_mem win,
   intros i h, rw cap at h, exact nat.not_mem_of_lt_Inf h,
 end
 
@@ -159,37 +159,30 @@ end
 theorem capt_upwards_closed [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} : ∀ k1 k2 : ℕ , k1 ≤ k2 → k1 ∈ {n:ℕ | capture (round CS RS n)} → k2 ∈ {n:ℕ | capture (round CS RS n)} :=
 begin
   intros k1 k2 le inc,
-  suffices : ∀ k1, k1 ∈ {n:ℕ | capture (round CS RS n)} → k1.succ ∈ {n:ℕ | capture (round CS RS n)},
-  { exact nat.le_rec_on le this inc,},
-  intros k1 hyp,
-  simp at hyp, clear inc, simp, 
-  cases k1, unfold capture, unfold round, simp, 
+  suffices : ∀ k1, k1 ∈ {n:ℕ | capture (round CS RS n)} → k1.succ ∈ {n:ℕ | capture (round CS RS n)}, { exact nat.le_rec_on le this inc,}, clear inc le k1 k2,
+  intros k1 hyp, simp at hyp, simp, 
+  cases k1, rw [capture, round], simp, rw [capture, round] at hyp, simp at hyp, 
   let nocheat := CS.cop_nocheat (round CS RS 0) hyp,
-  rw [capture, round] at hyp, cases hyp with m hyp, simp at hyp,
-  use m, conv {
-  to_rhs, rw hyp.symm,  
-  }, unfold round at nocheat, rw nocheat,
-  cases (nat.even_or_odd k1_1.succ), 
-  rw [nat.even_iff_not_odd, odd_succ.symm, nat.odd_iff_not_even, nat.even_iff] at h,
-  let nocheat := CS.cop_nocheat (round CS RS k1_1.succ) hyp,
+  cases hyp with m hyp, 
+  use m, rw round, rw hyp.symm, unfold round at nocheat, rw hyp.symm at nocheat, rw nocheat,
+  cases (nat.even_or_odd k1.succ), 
+  rw [nat.even_iff_not_odd, odd_succ.symm, nat.odd_iff_not_even] at h,
+  let nocheat := CS.cop_nocheat (round CS RS k1.succ) hyp,
   rw capture at hyp, cases hyp with m hyp, use m,
-  rw [(nat.one_add k1_1.succ).symm, nat.add_comm] at h, rw round, rw if_neg h, clear h, simp, rw [nocheat, hyp],
-  rw [nat.odd_iff_not_even, nat.even_succ.symm, nat.even_iff] at h,
-  let nocheat := RS.rob_nocheat (round CS RS k1_1.succ) hyp,
+  rw round, rw if_neg h, clear h, simp, rw [nocheat, hyp],
+  rw [nat.odd_iff_not_even, nat.even_succ.symm] at h,
+  let nocheat := RS.rob_nocheat (round CS RS k1.succ) hyp,
   rw capture at hyp, cases hyp with m hyp, use m,
-  rw [(nat.one_add k1_1.succ).symm, nat.add_comm] at h, rw round, rw if_pos h, clear h, simp, rw [nocheat, hyp],
+  rw [(nat.one_add k1.succ).symm, nat.add_comm] at h, rw round, rw if_pos h, clear h, simp, rw [nocheat, hyp],
 end
 
 -- A smart robber will never get caught on their own turn
--- TODO: define capture time 
-theorem smart_capture_cop_move [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 0) : n%2=1 :=
+theorem smart_capture_cop_move [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 0) : odd n :=
 begin
   rw winning_strat_cop at p, specialize p (smart_robber G), 
   have non: {n:ℕ | capture (round CS (smart_robber G) n)}.nonempty,
     rw set.nonempty_def, simp, exact p,
-  by_contradiction K, 
-  have K': n%2=0,
-    exact (or_iff_right K).1 (mod2_zero_or_one n),
+  by_contradiction K, simp at K,
   have pred_no_cap: ∀ m < n, ¬ capture (round CS (smart_robber G) m),
     intros m h, rw cap at h, exact nat.not_mem_of_lt_Inf h,
   have cap' : capture (round CS (smart_robber G) n),
@@ -207,27 +200,27 @@ begin
     cases n, contradiction, rw (nat.pred_succ n),
     suffices this: ¬ (∃ (w : V), G.adj (round CS (smart_robber G) n).snd w ∧ ¬G.adj (round CS (smart_robber G) n).fst.head w),
       conv {
-        to_lhs, congr, rw smart_robber, --command 'skip' to get 3rd rw 
+        to_lhs, congr, rw smart_robber, 
       }, simp, by_contradiction K', simp at K', cases K' with x K',cases K' with h' K',
       push_neg at this, specialize this x, specialize this h'.1, have h'' : ¬G.adj (round CS (smart_robber G) n).fst.head x, exact h'.2, 
       contradiction,
-    by_contradiction K, 
+    by_contradiction K', 
     have contradiction: ¬ capture (round CS (smart_robber G) n.succ),
-      have this : (smart_robber G).rob_strat (round CS (smart_robber G) n) = some K,
+      have this : (smart_robber G).rob_strat (round CS (smart_robber G) n) = some K',
         conv {
           to_lhs, congr, rw smart_robber, 
-        }, simp, rw dif_pos K,
+        }, simp, rw dif_pos K', 
       rw capture, push_neg, intro i, have this: i=0, simp, rw this, clear this, clear i, simp,
-      unfold round, rw (nat.add_one n).symm at K', rw if_pos K', simp, rw this, clear this,
-      suffices this: ¬G.adj (round CS (smart_robber G) n).fst.head (some K),
+      unfold round, rw (nat.add_one n).symm at K, rw if_pos K, simp, rw this, clear this,
+      suffices this: ¬G.adj (round CS (smart_robber G) n).fst.head (some K'),
         exact rgraph_nadj_imp_neq this,
-      exact and.elim_right (classical.some_spec K),
+      exact and.elim_right (classical.some_spec K'),
     contradiction,
   unfold capture at cap', unfold capture at pred_no_cap, push_neg at pred_no_cap,
   specialize pred_no_cap 0,
   cases cap' with i cap', have this: i=0, simp, rw this at cap', clear this, clear i,
   cases n, contradiction,
-  rw round, rw (nat.add_one n).symm at K', rewrite if_pos K', simp,
+  rw round, rw (nat.add_one n).symm at K, rewrite if_pos K, simp,
   rw (nat.pred_succ n) at rob_in_place, rw (nat.pred_succ n) at pred_no_cap, 
   simp at pred_no_cap, rw rob_in_place.symm at pred_no_cap, exact pred_no_cap, 
 end
@@ -240,9 +233,9 @@ begin
  rw nat.pred_succ (n.succ), rw nat.pred_succ n, 
  let cap' := and.left (cop_catch_nonempty cap), 
  cases (nat.even_or_odd n.succ.succ),
- rw [nat.even_succ, nat.even_iff, nat.succ_eq_add_one] at h, 
+ rw nat.even_succ at h, 
  conv { to_rhs, rw round, }, rw if_neg h,
- rw [odd_succ, nat.odd_iff_not_even, nat.succ_eq_add_one, nat.even_iff] at h, push_neg at h, 
+ rw [odd_succ, nat.odd_iff_not_even, nat.succ_eq_add_one] at h, push_neg at h, 
  conv { to_rhs, rw round, }, rw if_pos h, simp, 
  conv { to_rhs, congr,rw smart_robber, }, simp,
  suffices this : ¬ ∃ (w : V), G.adj (round CS (smart_robber G) n).snd w ∧ ¬G.adj (round CS (smart_robber G) n).fst.head w,
@@ -250,8 +243,8 @@ begin
  by_contradiction K,
  have this: ¬ capture (round CS (smart_robber G) n.succ.succ),
   rw capture, push_neg, intro i, have this: i=0, simp, rw this, clear this, clear i, simp, 
-  rw round, have this : ¬(n.succ + 1) % 2 = 0, rw [(nat.succ_eq_add_one n.succ).symm, nat.even_iff.symm, nat.odd_iff_not_even.symm], rw [nat.even_iff.symm,(nat.succ_eq_add_one n).symm, nat.even_iff_not_odd] at h, 
-  exact odd_succ.2 h,
+  rw round, have this : odd(n.succ +1), rw [(nat.succ_eq_add_one n).symm, nat.even_iff_not_odd] at h, exact odd_succ.2 h,
+  rw nat.odd_iff_not_even at this,
   rw if_neg this, simp, rw round, rw if_pos h, simp, conv { congr, to_rhs, congr, rw smart_robber,} , simp, rw dif_pos K,
   have nadj1 : ¬ G.adj (round CS (smart_robber G) n).fst.head (some K), by exact (some_spec K).2,
   have nadj2: G.adj ((round CS (smart_robber G) n).1.head) ((CS.cop_strat (round CS (smart_robber G) n.succ)).head),
@@ -265,7 +258,7 @@ end
 
 lemma if_one_mod2_not_zero (n : ℕ ) : n%2 = 1 → ¬ (n % 2 = 0) :=
 begin
-  intro h, linarith,
+  norm_num,
 end
 
 lemma if_succ_one_mod2_zero {n : ℕ } : n.succ%2 = 1 → n % 2 = 0 :=
@@ -276,66 +269,47 @@ begin
   exact nat.even_iff.1 (this h),
 end
 
+lemma cwg_1_cop_win {V: Type} [fintype V] [inhabited V] (G: refl_graph V): cop_win_graph G ↔ k_cop_win G 1 :=
+begin
+ split, intro cwg, let non := lots_of_cops G,
+ let E:= nat.Inf_mem non, rw [cop_win_graph,cop_number] at cwg, rw cwg at E, exact E,
+ intro kcw, rw [cop_win_graph,cop_number],
+ have one : 1 ∈ {k : ℕ | k_cop_win G k}, exact kcw,  
+ have le : Inf {k : ℕ | k_cop_win G k} ≤ 1, sorry,--exact Inf_le one,
+ let gt0 := zero_cops_cant_win G, rw cop_number at gt0, linarith,
+end
+
+lemma sm_rob_turn0_catch_imp_K1 [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} (p: winning_strat_cop CS) : capture (round CS (smart_robber G) 0) → fintype.card V = 1 :=
+begin
+  intro cap, rw [capture, round] at cap, simp at cap,
+  cases cap with i cap, have this: i=0, simp, rw this at cap, clear this i,
+  have: ∀ w, w= CS.cop_init.head,
+  { by_contradiction K, push_neg at K,
+    rw smart_robber at cap, rw rob_init_fn at cap, simp at cap, 
+    rw dif_pos K at cap, 
+    by_cases h: ∃ (w : V), ¬G.adj CS.cop_init.head w,
+    rw dif_pos h at cap, let nocap:= rgraph_nadj_imp_neq (some_spec h), contradiction,
+    rw dif_neg h at cap, let nocap:= (some_spec K).symm, contradiction, },
+  exact fintype.card_eq_one_of_forall_eq this,
+end
+
 theorem cwg_has_corner [complete_semilattice_Inf ℕ] [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V): 
 cop_win_graph G → has_corner G := 
 begin
   intro CW,
-  rw [cop_win_graph,cop_number] at CW,
-  have cop_win: k_cop_win G 1,
-  {
-    have non: {k : ℕ | k_cop_win G k}.nonempty,
-    exact lots_of_cops G,
-    let E:= nat.Inf_mem non,
-    rw CW at E,
-    apply E,
-  },
-  cases cop_win with CS h,
+  rw cwg_1_cop_win at CW,
+  cases CW with CS h,
   rw has_corner,
   let RS := smart_robber G,
   have min : ∃ n:ℕ , n = Inf{n:ℕ | capture (round CS RS n)},
     apply wcs_min_rounds CS h,
   cases min with w hw,
   cases w with w wsucc,
-  {
-    apply or.inl,
-    have cap : capture (round CS RS 0),
-      have zero_in : 0 ∈ {n : ℕ | capture (round CS RS n)},
-        { have zero_or : 0 ∈ {n : ℕ | capture (round CS RS n)} ∨ {n : ℕ | capture (round CS RS n)} = ∅,
-        apply nat.Inf_eq_zero.1 hw.symm,
-      have zero_nonempty: {n : ℕ | capture (round CS RS n)}.nonempty,
-      { rw winning_strat_cop at h,
-        specialize h RS,
-        cases h with n hn,
-        use n,
-        exact hn,
-      },
-      apply or.resolve_right zero_or,
-      exact set.nonempty.ne_empty zero_nonempty,
-      },
-      exact zero_in,
-    rw [capture, round] at cap, simp at cap,
-    cases cap with i cap, have this: i=0, simp, rw this at cap,
-    have: ∀ w, w= CS.cop_init.head,
-    { by_contradiction K,
-      push_neg at K,
-      change _ = (smart_robber G).rob_init _ at cap,
-      have x : rob_init_fn G CS.cop_init ≠ CS.cop_init.head,
-      { unfold rob_init_fn,
-        rw dif_pos K, 
-        by_cases h: ∃ (w : V), ¬G.adj CS.cop_init.head w,
-        { rw dif_pos h,
-          exact rgraph_vtx_neq' CS.cop_init.head h,
-        },
-        rw dif_neg h, push_neg at h,
-        exact some_spec K,
-      },
-      have y : (smart_robber G).rob_init CS.cop_init ≠ rob_init_fn G CS.cop_init,
-        simp at cap,
-        exact ne_of_eq_of_ne cap.symm x.symm,
-      contradiction,
-    },
-    exact fintype.card_eq_one_of_forall_eq this,
-  },
+  { apply or.inl, simp at hw,
+    have : {n : ℕ | capture (round CS RS n)}.nonempty,
+      rw winning_strat_cop at h, specialize h RS, exact h,
+    let x := nat.Inf_mem this, simp at x, rw hw.symm at x,
+    exact sm_rob_turn0_catch_imp_K1 h x,},
   apply or.inr,
   have cap : capture (round CS RS w.succ),
   { have ne: {n : ℕ | capture (round CS RS n)}.nonempty,
@@ -346,13 +320,13 @@ begin
         exact nat.Inf_mem ne, rw hw.symm at this,
       exact this, },
     exact w_in, },
-  have w_succ_odd: w.succ%2=1,
+  have w_succ_odd: odd w.succ,
     have this: w.succ>0,
       exact nat.succ_pos',
     exact smart_capture_cop_move h hw this,
   rw [capture, round] at cap, cases cap with i cap, 
   have this: i=0, simp, rw this at cap, clear this, clear i, simp at cap, 
-  rw if_neg ((if_one_mod2_not_zero w.succ) w_succ_odd) at cap, simp at cap,
+  rw if_neg (nat.odd_iff_not_even.1 w_succ_odd) at cap, simp at cap,
   unfold corner_vtx, clear w_succ_odd,
   use (round CS RS w).snd, use (round CS RS w).1.head, split,
   by_contradiction,
@@ -378,9 +352,9 @@ begin
   contradiction,
   have gt1 : w.succ.succ >1, exact nat.succ_lt_succ (nat.zero_lt_succ w),
   let sameplace_rob := smart_rob_in_place h hw gt1, simp at sameplace_rob, rw sameplace_rob.symm at H,
-  have mod : (w + 1) % 2 = 0,
+  have mod : even w.succ,
     let x := smart_capture_cop_move h hw nat.succ_pos', 
-    rw [nat.not_odd_iff.symm, odd_succ.symm], rw nat.odd_iff, exact x,
+    rw odd_succ at x, exact nat.even_iff_not_odd.2 x,
   have sameplace_cop : (round CS RS w.succ).fst.head = (round CS RS w).fst.head,
     rw [round, if_pos mod], rw sameplace_cop at K,
   rw round at cap, rw if_pos mod at cap, simp at cap,
@@ -396,53 +370,3 @@ begin
   exact and.elim_right (some_spec this),
   contradiction,
 end
-
-def induced_subgraph (S: set V) (G: refl_graph V) : refl_graph {v:V// v ∈ S} :=
-{ adj := λ a b, G.adj a b, 
-  sym :=  λ a b h, G.sym h,
-  selfloop := 
-  begin
-    intro a, 
-    apply G.selfloop,
-  end  
-}
-
-structure retract {c: V} (G: refl_graph V) (H:= induced_subgraph {v: V | v ≠ c} G)  := 
-  (f: graph_hom G H)
-  (id: ∀ v ≠ c, v = f.to_fun(v))
-  (corner: corner_cmp G c ↑(f.to_fun(c)))
-
-def dismantle (G: refl_graph V) : list V → Prop
-| [] := G ≅ singleton_graph 
-| (a::L) := (corner_vtx G a) ∧ dismantle L
-
-def dismantlable_graph (G: refl_graph V) := ∃ L, dismantle G L
-
-def image_strat {V: Type} [fintype V] [decidable_eq V] [inhabited V] {c:V} {n: ℕ }
-(G: refl_graph V) (H := induced_subgraph  {v: V | v ≠ c} G) (F: retract G H)
-(CS: cop_strat G n)
-: cop_strat H n :=
-{
-  cop_init := vector.map (F.f).to_fun CS.cop_init,
-  cop_strat := λ x, vector.map (F.f).to_fun (CS.cop_strat (x.1.map subtype.val,x.2.val)),
-  cop_nocheat := sorry
-}
-
-lemma cop_num_le_retract {V: Type} [fintype V] [decidable_eq V] [inhabited V] {c:V} (G: refl_graph V) (H := induced_subgraph {v: V | v ≠ c} G) : 
-retract G H → cop_number H ≤ cop_number G :=
-begin
-  intro hyp,
-  cases hyp with f id corner,
-  unfold cop_number,
-  let n:= Inf {k : ℕ | k_cop_win G k},
-  suffices : k_cop_win H n,
-    exact nat.Inf_le this,
-  have n_win: k_cop_win G n,
-    exact nat.Inf_mem (lots_of_cops G), 
-  rw k_cop_win at n_win,
-  cases n_win with CS hCS,
-  let CS' := cop_strat H n,
-  sorry,
-end
-
-

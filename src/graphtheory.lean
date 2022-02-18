@@ -6,6 +6,7 @@ import order.conditionally_complete_lattice
 import init.logic
 import init.data.nat
 import data.nat.lattice
+import data.nat.parity
 
 
 /-
@@ -80,6 +81,7 @@ begin
     exact eq.subst C.symm refl,
   contradiction,
 end
+
 def empty_graph : refl_graph empty :=
 /-complete_refl_graph empty-/
 {
@@ -190,9 +192,10 @@ structure rob_strat {V: Type} [fintype V] (G: refl_graph V) (n : ℕ ) :=
 (rob_nocheat: ∀ K,  capture K → rob_strat K = K.2)
 (rob_legal: ∀ v P, G.adj v (rob_strat (P,v)))
 
+
 noncomputable def round {V: Type} [fintype V] {G: refl_graph V} {k : ℕ } (CS: cop_strat G k) (RS: rob_strat G k) : ℕ → vector V k × V
 | 0 := (CS.cop_init, RS.rob_init (CS.cop_init))
-| (n+1) := if (n+1) %2 =0 
+| (n+1) := if even (n+1)
            then ((round n).1, RS.rob_strat (round n)) 
            else (CS.cop_strat (round n), (round n).2)
 
@@ -219,8 +222,6 @@ def cop_win_graph {V: Type} [fintype V] [has_Inf ℕ] (G: refl_graph V) := cop_n
 def capture_time {V: Type} [fintype V] [has_Inf ℕ] {G: refl_graph V} {n : ℕ} (CS: cop_strat G n) (RS: rob_strat G n) := Inf{k :ℕ | capture (round CS RS k)}
 
 lemma cop_win_min_cap_time {V: Type} [fintype V] [has_Inf ℕ] {G: refl_graph V} {n : ℕ} {CS: cop_strat G n} {RS: rob_strat G n} : winning_strat_cop CS → ∃ n: ℕ, n = capture_time CS RS := begin simp, end
-
-
 
 lemma not_cap_iff_diff_vtx {V: Type} [fintype V] {G: refl_graph V} {k : ℕ }{CS: cop_strat G k} {RS: rob_strat G k} : ∀ n : ℕ , ¬ capture (round CS RS n) ↔ ∀ i : fin k, (round CS RS n).1.nth i ≠ (round CS RS n).2 :=
 begin
@@ -300,51 +301,7 @@ def zero_cop_robber_strategy {V: Type} [fintype V] [decidable_eq V] [inhabited V
   end
 }
 
-lemma zero_cops_cant_win {V: Type} [fintype V][has_Inf ℕ][decidable_eq V][inhabited V]  :
-  ∀ G : refl_graph V, 0<cop_number G :=
-begin
-  intro G,
-  by_contradiction H,
-  rw not_lt at H,
-  have zero_cops: cop_number G = 0,
-  {
-    have h: cop_number G ≤ 0 → cop_number G = 0,
-      simp,
-    exact h H,
-  },
-  rw cop_number at zero_cops,
-  rw nat.Inf_eq_zero at zero_cops, 
-  cases Inf_zero with H1 H2,
-  { have zero_win : k_cop_win G 0,
-      apply' H1,
-    rw k_cop_win at zero_win,
-    have not_zero_win: ¬ (∃ (CS : cop_strat G 0), winning_strat_cop CS),
-    { push_neg,
-      intro CS,
-      rw winning_strat_cop,
-      push_neg,
-      let RS := zero_cop_robber_strategy G,
-      use RS,
-      intro n,
-      cases n,
-      { rw capture,
-        simp,
-        intro x,
-        apply fin.elim0 x, },
-      { rw capture,
-        simp,
-        intro x,
-        apply fin.elim0 x,},},
-    contradiction,},
-  { let K := lots_of_cops G,
-    have negK : ¬ set.nonempty {k : ℕ | k_cop_win G k},
-    { rw H2,
-      exact not_nonempty_empty,},
-    contradiction,},
-  -- ,
-end
-
-lemma zero_cops_cant_win' {V: Type} [fintype V] [decidable_eq V][inhabited V]  :
+lemma zero_cops_cant_win {V: Type} [fintype V] [decidable_eq V][inhabited V]  :
   ∀ G : refl_graph V, 0<cop_number G :=
 begin
   intro G,
@@ -359,7 +316,6 @@ begin
   rw H2 at h,
   exact set.not_mem_empty _ h,
 end
-
 
 def complete_strategy (V: Type) [fintype V] [decidable_eq V] [inhabited V] : cop_strat (complete_refl_graph V) 1 :=
 { cop_init  := ⟨[arbitrary V], rfl⟩,
@@ -386,21 +342,11 @@ begin
   rw cop_win_graph,
   rw cop_number,
   have CW : 1 ∈ {k : ℕ | k_cop_win (complete_refl_graph V) k},
-  {
-    let CW_strat := complete_strategy V,
+  { let CW_strat := complete_strategy V,
     have winning : winning_strat_cop CW_strat,
-    {
-      intro RS,
-      use 1,
-      use 0,
-      rw round, simp,
-      rw round,
-      refl,
-    },
-    simp,
-    use CW_strat,
-    exact winning,
-  },
+    { intro RS, use 1, use 0,
+      rw round, rw round, simp, refl, },
+    simp, use CW_strat, exact winning, },
   have leq: Inf {k : ℕ | k_cop_win (complete_refl_graph V) k} ≤ 1,
     exact nat.Inf_le CW,
   have ge : Inf {k : ℕ | k_cop_win (complete_refl_graph V) k} >0,
@@ -408,3 +354,13 @@ begin
   linarith,
 end
 
+-- def ge_strat {V: Type} {G: refl_graph V} {a b :ℕ } [fintype V] [decidable_eq V] [inhabited V] (CS: cop_strat G a) (ge: a ≤ b) : cop_strat G (a+ (b-a)) :=
+-- { cop_init:= CS.cop_init.append (vector.repeat (arbitrary V) (b-a)),
+--   cop_strat:= λ x , 
+
+-- }
+
+-- lemma copnumber_upwards_closed {V: Type}{G: refl_graph V}  [fintype V] [decidable_eq V] [inhabited V] : ∀ a b : ℕ, a ≤ b → a ∈ {k : ℕ | k_cop_win G k} → b ∈ {k : ℕ | k_cop_win G k} :=
+-- begin
+--   intros a b le ain, simp, simp at ain, rw k_cop_win,
+-- end
