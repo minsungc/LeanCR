@@ -354,16 +354,17 @@ begin
   linarith,
 end
 
+-- How much can lean infer?
 
 def ex {V: Type} [inhabited V] {a b : ℕ}(va : vector V a) (vb: vector V (b-a))(ge: a ≤ b) : vector V b := va.append vb
 
-def ge_strat {V: Type} {G: refl_graph V} {a b :ℕ } [fintype V] [decidable_eq V] [inhabited V] (CS: cop_strat G a) (ge: a ≤ b) : cop_strat G b :=
-{ cop_init:= (vector.repeat (arbitrary V) (b-a)).append CS.cop_init,
-  cop_strat:= λ x , 
+-- def ge_strat {V: Type} {G: refl_graph V} {a b :ℕ } [fintype V] [decidable_eq V] [inhabited V] (CS: cop_strat G a) (ge: a ≤ b) : cop_strat G b :=
+-- { cop_init:= (vector.repeat (arbitrary V) (b-a)).append CS.cop_init,
+--   cop_strat:= λ x , 
 
-}
+-- }
 
 lemma copnumber_upwards_closed {V: Type}{G: refl_graph V}  [fintype V] [decidable_eq V] [inhabited V] : ∀ a b : ℕ, a ≤ b → a ∈ {k : ℕ | k_cop_win G k} → b ∈ {k : ℕ | k_cop_win G k} :=
 begin
-  intros a b le ain, simp, simp at ain, rw k_cop_win,
+  sorry,
 end

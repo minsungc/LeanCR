@@ -274,9 +274,10 @@ begin
  split, intro cwg, let non := lots_of_cops G,
  let E:= nat.Inf_mem non, rw [cop_win_graph,cop_number] at cwg, rw cwg at E, exact E,
  intro kcw, rw [cop_win_graph,cop_number],
- have one : 1 ∈ {k : ℕ | k_cop_win G k}, exact kcw,  
- have le : Inf {k : ℕ | k_cop_win G k} ≤ 1, sorry,--exact Inf_le one,
- let gt0 := zero_cops_cant_win G, rw cop_number at gt0, linarith,
+ rw nat.Inf_upward_closed_eq_succ_iff copnumber_upwards_closed 0, 
+ split, exact kcw, 
+ let x := zero_cops_cant_win G, rw cop_number at x, exact nat.not_mem_of_lt_Inf x,
+ repeat {apply_instance},
 end
 
 lemma sm_rob_turn0_catch_imp_K1 [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} (p: winning_strat_cop CS) : capture (round CS (smart_robber G) 0) → fintype.card V = 1 :=
@@ -285,15 +286,14 @@ begin
   cases cap with i cap, have this: i=0, simp, rw this at cap, clear this i,
   have: ∀ w, w= CS.cop_init.head,
   { by_contradiction K, push_neg at K,
-    rw smart_robber at cap, rw rob_init_fn at cap, simp at cap, 
-    rw dif_pos K at cap, 
+    rw [smart_robber ,rob_init_fn] at cap, simp at cap, rw dif_pos K at cap, 
     by_cases h: ∃ (w : V), ¬G.adj CS.cop_init.head w,
     rw dif_pos h at cap, let nocap:= rgraph_nadj_imp_neq (some_spec h), contradiction,
     rw dif_neg h at cap, let nocap:= (some_spec K).symm, contradiction, },
   exact fintype.card_eq_one_of_forall_eq this,
 end
 
-theorem cwg_has_corner [complete_semilattice_Inf ℕ] [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V): 
+theorem cwg_has_corner [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V): 
 cop_win_graph G → has_corner G := 
 begin
   intro CW,
@@ -332,9 +332,9 @@ begin
   by_contradiction,
   have contra: capture (round CS RS w), unfold capture, use 0, simp, exact h,
   rw nat.succ_eq_add_one at hw, have hw' :Inf {n : ℕ | capture (round CS RS n)} = w+1, exact hw.symm, clear hw,
-  rw nat.Inf_upward_closed_eq_succ_iff (capt_upwards_closed) w at hw', rename hw' hw,
+  have hw := (nat.Inf_upward_closed_eq_succ_iff (capt_upwards_closed) w).mp hw', rename hw' hw,
   cases hw with hw1 hw2, simp at hw2, contradiction, 
-  exact _inst_4, exact _inst_6, exact _inst_5, exact _inst_6,
+  repeat {apply_instance},
   by_contradiction K, rw set.not_subset at K, cases K with a K, cases K with H K,
   rw neighbor_set' at H, simp at H, rw neighbor_set' at K, simp at K,
   cases w,
