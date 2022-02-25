@@ -5,12 +5,7 @@ variables {V: Type} [fintype V] [inhabited V]
 def induced_subgraph (S: set V) (G: refl_graph V) : refl_graph {v:V// v ∈ S} :=
 { adj := λ a b, G.adj a b, 
   sym :=  λ a b h, G.sym h,
-  selfloop := 
-  begin
-    intro a, 
-    apply G.selfloop,
-  end  
-}
+  selfloop := begin intro a, apply G.selfloop end }
 
 structure retract {c: V} (G: refl_graph V) (H:= induced_subgraph {v: V | v ≠ c} G)  := 
   (f: graph_hom G H)
@@ -30,7 +25,10 @@ def image_strat {V: Type} [fintype V] [decidable_eq V] [inhabited V] {c:V} {n: �
 {
   cop_init := vector.map (F.f).to_fun CS.cop_init,
   cop_strat := λ x, vector.map (F.f).to_fun (CS.cop_strat (x.1.map subtype.val,x.2.val)),
-  cop_nocheat := sorry
+  cop_nocheat := 
+  begin
+    intros K cap,
+  end
 }
 
 lemma cop_num_le_retract {V: Type} [fintype V] [decidable_eq V] [inhabited V] {c:V} (G: refl_graph V) (H := induced_subgraph {v: V | v ≠ c} G) : 

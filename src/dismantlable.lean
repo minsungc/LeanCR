@@ -180,8 +180,7 @@ end
 theorem smart_capture_cop_move [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 0) : odd n :=
 begin
   rw winning_strat_cop at p, specialize p (smart_robber G), 
-  have non: {n:ℕ | capture (round CS (smart_robber G) n)}.nonempty,
-    rw set.nonempty_def, simp, exact p,
+  have non: {n:ℕ | capture (round CS (smart_robber G) n)}.nonempty, exact p,
   by_contradiction K, simp at K,
   have pred_no_cap: ∀ m < n, ¬ capture (round CS (smart_robber G) m),
     intros m h, rw cap at h, exact nat.not_mem_of_lt_Inf h,
@@ -256,19 +255,6 @@ begin
  exact p,
 end
 
-lemma if_one_mod2_not_zero (n : ℕ ) : n%2 = 1 → ¬ (n % 2 = 0) :=
-begin
-  norm_num,
-end
-
-lemma if_succ_one_mod2_zero {n : ℕ } : n.succ%2 = 1 → n % 2 = 0 :=
-begin
-  intro h, rw nat.odd_iff.symm at h,
-  have this: odd n.succ → even n,
-    contrapose, rw (nat.even_iff_not_odd).symm, exact nat.even_succ.2,
-  exact nat.even_iff.1 (this h),
-end
-
 lemma cwg_1_cop_win {V: Type} [fintype V] [inhabited V] (G: refl_graph V): cop_win_graph G ↔ k_cop_win G 1 :=
 begin
  split, intro cwg, let non := lots_of_cops G,
@@ -286,10 +272,10 @@ begin
   cases cap with i cap, have this: i=0, simp, rw this at cap, clear this i,
   have: ∀ w, w= CS.cop_init.head,
   { by_contradiction K, push_neg at K,
-    rw [smart_robber ,rob_init_fn] at cap, simp at cap, rw dif_pos K at cap, 
-    by_cases h: ∃ (w : V), ¬G.adj CS.cop_init.head w,
-    rw dif_pos h at cap, let nocap:= rgraph_nadj_imp_neq (some_spec h), contradiction,
-    rw dif_neg h at cap, let nocap:= (some_spec K).symm, contradiction, },
+    rw [smart_robber ,rob_init_fn] at cap, simp at cap, rw dif_pos K at cap,
+    split_ifs at cap,
+    exact (rgraph_nadj_imp_neq (some_spec h)) cap,
+    exact (some_spec K).symm cap },
   exact fintype.card_eq_one_of_forall_eq this,
 end
 
