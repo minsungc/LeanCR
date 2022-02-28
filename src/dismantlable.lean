@@ -145,16 +145,6 @@ begin
   simp,
 end
 
---Simple lemma for reasoning
-lemma cop_catch_nonempty {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} {win : winning_strat_cop CS}{k : ℕ } (cap : k = Inf{n:ℕ | capture (round CS RS n)}) : capture (round CS RS k) ∧ ∀ i < k, ¬ capture (round CS RS i) :=
-begin
-  split,
-  suffices this : {n_1 : ℕ | capture (round CS RS n_1)}.nonempty,
-    let x := nat.Inf_mem this, rw cap.symm at x, exact x,
-  specialize win RS, cases win with w win, exact set.nonempty_of_mem win,
-  intros i h, rw cap at h, exact nat.not_mem_of_lt_Inf h,
-end
-
 --If the cop captures at some round n, then he captures for all m >= n
 theorem capt_upwards_closed {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} : ∀ k1 k2 : ℕ , k1 ≤ k2 → k1 ∈ {n:ℕ | capture (round CS RS n)} → k2 ∈ {n:ℕ | capture (round CS RS n)} :=
 begin
@@ -164,37 +154,71 @@ begin
   cases k1, rw [capture, round], simp, rw [capture, round] at hyp, simp at hyp, 
   let nocheat := CS.cop_nocheat (round CS RS 0) hyp,
   cases hyp with m hyp, 
-  use m, rw round, rw hyp.symm, unfold round at nocheat, rw hyp.symm at nocheat, rw nocheat,
+  use m, rw [round, hyp.symm] at nocheat, rw [round, hyp.symm, nocheat],
   cases (nat.even_or_odd k1.succ), 
   rw [nat.even_iff_not_odd, odd_succ.symm, nat.odd_iff_not_even] at h,
   let nocheat := CS.cop_nocheat (round CS RS k1.succ) hyp,
-  rw capture at hyp, cases hyp with m hyp, use m,
-  rw round, rw if_neg h, clear h, simp, rw [nocheat, hyp],
+  cases hyp with m hyp, use m, rw [round, if_neg h, nocheat, hyp], 
   rw [nat.odd_iff_not_even, nat.even_succ.symm] at h,
   let nocheat := RS.rob_nocheat (round CS RS k1.succ) hyp,
-  rw capture at hyp, cases hyp with m hyp, use m,
-  rw [(nat.one_add k1.succ).symm, nat.add_comm] at h, rw round, rw if_pos h, clear h, simp, rw [nocheat, hyp],
+  cases hyp with m hyp, use m, rw [round, if_pos h, nocheat, hyp],
+end
+
+--Simple lemma for reasoning
+lemma cop_catch_nonempty {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} {win : winning_strat_cop CS} {k : ℕ } : k = Inf{n:ℕ | capture (round CS RS n)} ↔ capture (round CS RS k) ∧ ∀ i < k, ¬ capture (round CS RS i) :=
+begin
+  split, intro cap, split,
+  suffices this : {n_1 : ℕ | capture (round CS RS n_1)}.nonempty,
+    let x := nat.Inf_mem this, rw cap.symm at x, exact x,
+  specialize win RS, cases win with w win, exact set.nonempty_of_mem win,
+  intros i h, rw cap at h, exact nat.not_mem_of_lt_Inf h,
+  intro h, cases k, symmetry, rw nat.Inf_eq_zero, exact or.inl h.1,
+  symmetry, rw nat.Inf_upward_closed_eq_succ_iff, split, exact h.1, 
+  simp, exact h.2 k (nat.lt_succ_self k), exact capt_upwards_closed,
+end
+
+--A smart robber will stay in place before cop captures.
+theorem smart_rob_in_place {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 1) : (round CS (smart_robber G) n.pred.pred).2  = (round CS (smart_robber G) n.pred).2 :=
+begin
+ cases n, let x := nat.not_lt_zero 1, contradiction,
+ cases n, let x := nat.lt_irrefl 1, contradiction,
+ rw [nat.pred_succ (n.succ), nat.pred_succ n], 
+ rw cop_catch_nonempty at cap,
+ cases (nat.even_or_odd n.succ.succ),
+ -- if n+2 is even
+ rw nat.even_succ at h, 
+ conv { to_rhs, rw round, }, rw if_neg h,
+-- if n+2 is odd
+ rw [odd_succ, nat.odd_iff_not_even, nat.succ_eq_add_one] at h, push_neg at h, 
+ conv { to_rhs, rw round, }, rw if_pos h, simp, 
+ conv { to_rhs, congr,rw smart_robber, }, simp,
+ suffices this : ¬ ∃ (w : V), G.adj (round CS (smart_robber G) n).snd w ∧ ¬G.adj (round CS (smart_robber G) n).fst.head w,
+  rw dif_neg this,
+ by_contradiction K,
+ have this: ¬ capture (round CS (smart_robber G) n.succ.succ),
+  rw capture, push_neg, intro i, have this: i=0, simp, rw this, clear this i, simp, 
+  rw round, have this : ¬ even (n.succ +1), simp with parity_simps, exact nat.even_succ.1 h,
+  rw [if_neg this, round, if_pos h], simp, conv { congr, to_rhs, congr, rw smart_robber,}, simp, rw dif_pos K,
+  have nadj1 : ¬ G.adj (round CS (smart_robber G) n).fst.head (some K), by exact (some_spec K).2,
+  have nadj2: G.adj ((round CS (smart_robber G) n).1.head) ((CS.cop_strat (round CS (smart_robber G) n.succ)).head),
+    conv{ congr, skip, skip, rw round,}, rw if_pos h,
+    let x := CS.cop_legal 0 ((smart_robber G).rob_strat (round CS (smart_robber G) n)) (round CS (smart_robber G) n).1,
+    simp at x, exact x,
+  let x := (rgraph_adj_cmp nadj1 nadj2).symm, rw [round, if_pos h] at x, exact x,
+ exact this (cap.1), exact p,
 end
 
 -- A smart robber will never get caught on their own turn
 theorem smart_capture_cop_move {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 0) : odd n :=
 begin
-  rw winning_strat_cop at p, specialize p (smart_robber G), 
-  have non: {n:ℕ | capture (round CS (smart_robber G) n)}.nonempty, exact p,
-  by_contradiction K, simp at K,
-  have pred_no_cap: ∀ m < n, ¬ capture (round CS (smart_robber G) m),
-    intros m h, rw cap at h, exact nat.not_mem_of_lt_Inf h,
-  have cap' : capture (round CS (smart_robber G) n),
-    let x := nat.Inf_mem non, rw cap.symm at x, exact x,
-  clear cap,
-  specialize pred_no_cap n.pred,
-  have this : n.pred < n,
-    suffices this :n ≠ 0, exact nat.pred_lt this, linarith,
-  specialize pred_no_cap this, clear this,
+  rw cop_catch_nonempty at cap,
+  have : n ≠ 0, linarith,
+  let pred_no_cap := cap.2 n.pred (nat.pred_lt this),
+  by_contradiction,
   suffices goal : (round CS (smart_robber G) n).1.head ≠ (round CS (smart_robber G) n).2,
     have nocap_atn : ¬ capture (round CS (smart_robber G) n),
       rw capture, push_neg, intro i, have this: i=0, simp, rw this, simp, exact goal,
-    contradiction,
+    exact nocap_atn cap.1,
   have rob_in_place: (smart_robber G).rob_strat (round CS (smart_robber G) n.pred) = (round CS (smart_robber G) n.pred).2,
     cases n, contradiction, rw (nat.pred_succ n),
     suffices this: ¬ (∃ (w : V), G.adj (round CS (smart_robber G) n).snd w ∧ ¬G.adj (round CS (smart_robber G) n).fst.head w),
@@ -210,49 +234,17 @@ begin
           to_lhs, congr, rw smart_robber, 
         }, simp, rw dif_pos K', 
       rw capture, push_neg, intro i, have this: i=0, simp, rw this, clear this, clear i, simp,
-      unfold round, rw (nat.add_one n).symm at K, rw if_pos K, simp, rw this, clear this,
+      unfold round, simp at h, rw (nat.add_one n).symm at h, rw if_pos h, simp, rw this, clear this,
       suffices this: ¬G.adj (round CS (smart_robber G) n).fst.head (some K'),
         exact rgraph_nadj_imp_neq this,
       exact and.elim_right (classical.some_spec K'),
-    contradiction,
-  unfold capture at cap', unfold capture at pred_no_cap, push_neg at pred_no_cap,
-  specialize pred_no_cap 0,
-  cases cap' with i cap', have this: i=0, simp, rw this at cap', clear this, clear i,
+    exact contradiction cap.1, 
+  rw capture at pred_no_cap, push_neg at pred_no_cap, specialize pred_no_cap 0,
+  cases cap.1 with i cap', have this: i=0, simp, rw this at cap', clear this, clear i,
   cases n, contradiction,
-  rw round, rw (nat.add_one n).symm at K, rewrite if_pos K, simp,
+  rw round, rw (nat.add_one n).symm at h, simp at h, rewrite if_pos h, simp,
   rw (nat.pred_succ n) at rob_in_place, rw (nat.pred_succ n) at pred_no_cap, 
-  simp at pred_no_cap, rw rob_in_place.symm at pred_no_cap, exact pred_no_cap, 
-end
-
---A smart robber will stay in place before cop captures.
-theorem smart_rob_in_place {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 1) : (round CS (smart_robber G) n.pred.pred).2  = (round CS (smart_robber G) n.pred).2 :=
-begin
- cases n, let x := nat.not_lt_zero 1, contradiction,
- cases n, let x := nat.lt_irrefl 1, contradiction,
- rw nat.pred_succ (n.succ), rw nat.pred_succ n, 
- let cap' := and.left (cop_catch_nonempty cap), 
- cases (nat.even_or_odd n.succ.succ),
- rw nat.even_succ at h, 
- conv { to_rhs, rw round, }, rw if_neg h,
- rw [odd_succ, nat.odd_iff_not_even, nat.succ_eq_add_one] at h, push_neg at h, 
- conv { to_rhs, rw round, }, rw if_pos h, simp, 
- conv { to_rhs, congr,rw smart_robber, }, simp,
- suffices this : ¬ ∃ (w : V), G.adj (round CS (smart_robber G) n).snd w ∧ ¬G.adj (round CS (smart_robber G) n).fst.head w,
-  rw dif_neg this,
- by_contradiction K,
- have this: ¬ capture (round CS (smart_robber G) n.succ.succ),
-  rw capture, push_neg, intro i, have this: i=0, simp, rw this, clear this, clear i, simp, 
-  rw round, have this : odd(n.succ +1), rw [(nat.succ_eq_add_one n).symm, nat.even_iff_not_odd] at h, exact odd_succ.2 h,
-  rw nat.odd_iff_not_even at this,
-  rw if_neg this, simp, rw round, rw if_pos h, simp, conv { congr, to_rhs, congr, rw smart_robber,} , simp, rw dif_pos K,
-  have nadj1 : ¬ G.adj (round CS (smart_robber G) n).fst.head (some K), by exact (some_spec K).2,
-  have nadj2: G.adj ((round CS (smart_robber G) n).1.head) ((CS.cop_strat (round CS (smart_robber G) n.succ)).head),
-    conv{ congr, skip, skip, rw round,}, rw if_pos h,
-    let x := CS.cop_legal 0 ((smart_robber G).rob_strat (round CS (smart_robber G) n)) (round CS (smart_robber G) n).1,
-    simp at x, exact x,
-  let x := (rgraph_adj_cmp nadj1 nadj2).symm, simp at x, unfold round at x, rw if_pos h at x, exact x,
- contradiction,
- exact p,
+  rw rob_in_place.symm at pred_no_cap,  simp at pred_no_cap, exact pred_no_cap, exact p,
 end
 
 lemma cwg_1_cop_win (G: refl_graph V): cop_win_graph G ↔ k_cop_win G 1 :=

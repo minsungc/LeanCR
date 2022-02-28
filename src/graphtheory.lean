@@ -407,7 +407,6 @@ def ge_rob_strat {G: refl_graph V} (RS: rob_strat G b) (ge: a ≤ b) : rob_strat
   rw ge_cs_strat_init, simp, rw if_pos (fin.is_lt i), exact cap,
   end }
 
-
 lemma copnumber_upwards_closed {V: Type}{G: refl_graph V}  [fintype V] [decidable_eq V] [inhabited V] : ∀ a b : ℕ, a ≤ b → a ∈ {k : ℕ | k_cop_win G k} → b ∈ {k : ℕ | k_cop_win G k} :=
 begin
   intros a b ge win_a, simp, rw k_cop_win, simp at win_a, rw k_cop_win at win_a,
