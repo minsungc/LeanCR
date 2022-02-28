@@ -358,49 +358,69 @@ section
 
 variables {V: Type} [fintype V] [inhabited V] {a b: ℕ} 
 
-def ge_strat_init (va: vector V a) : vector V b :=
+def ge_cs_strat_init (va: vector V a) : vector V b :=
 vector.of_fn (λ i, if h : ↑i < a then va.nth ⟨_, h⟩ else arbitrary V)
 
 def vec_remove (va: vector V b) (ge: a ≤ b) : vector V a :=
 vector.of_fn (λ i, va.nth (fin.cast_le ge i))
 
-def ge_strat_fn (strat: vector V a × V → vector V a) (ge: a ≤ b ): vector V b × V → vector V b :=
+def ge_cs_strat_fn (strat: vector V a × V → vector V a) (ge: a ≤ b ): vector V b × V → vector V b :=
   λ x, vector.of_fn (λ i, if h : ↑i < a then (strat ⟨vec_remove x.1 ge, x.2⟩).nth ⟨_, h⟩  else x.1.nth i )
 
-lemma list_eq (v: list V) (w: list V) : v = w ↔ v.length = w.length ∧ ∀ i : fin (v.length), v.nth i = w.nth i := sorry
-
-lemma vector_eq (v: vector V b) (w: vector V b) : v = w ↔ ∀ i : fin b, v.nth i = w.nth i :=
-begin
-  split, intros assm i, rw assm, 
-  intro assm, 
-  have one : v.to_list.length = w.to_list.length, 
-   rw [vector.to_list_length v, vector.to_list_length w],
-  have two: ∀ i : fin (v.to_list.length), v.to_list.nth i = w.to_list.nth i,
-    rw vector.to_list_length v, intro i, specialize assm i, sorry,
-  let x := (list_eq v.to_list w.to_list).2 (and.intro one two),
-  exact vector.eq v w x,
-end
-
-def ge_strat {G: refl_graph V}(CS: cop_strat G a) (ge: a ≤ b) : cop_strat G b :=
-{ cop_init := ge_strat_init CS.cop_init,
-  cop_strat := ge_strat_fn CS.cop_strat ge,
+def ge_cop_strat {G: refl_graph V} (CS: cop_strat G a) (ge: a ≤ b) : cop_strat G b :=
+{ cop_init := ge_cs_strat_init CS.cop_init,
+  cop_strat := ge_cs_strat_fn CS.cop_strat ge,
   cop_nocheat :=
     begin
-      intros K assm, rw vector_eq, intro i, rw ge_strat_fn, simp, intro h, 
-      rw capture at assm, sorry,
+      intros K assm, 
+      suffices :  ∀ (m : fin b), (ge_cs_strat_fn CS.cop_strat ge K).nth m = K.fst.nth m, exact vector.ext this,
+      intro m, rw [ge_cs_strat_fn], simp, intro h, 
+      let x := CS.cop_nocheat (vec_remove K.fst ge, K.snd), simp at x,
+      have : (vec_remove K.fst ge).nth ⟨↑m, h⟩ =  K.fst.nth m, rw vec_remove, simp,
+      rw this.symm, sorry,
     end,
   cop_legal :=
     begin
-      intros i v P, rw ge_strat_fn, simp, by_cases h: ¬↑i < a,
+      intros i v P, rw ge_cs_strat_fn, simp, by_cases h: ¬↑i < a,
       rw dif_neg h, exact G.selfloop (P.nth i),
-      simp at h, rw dif_pos h, rw vec_remove, sorry,
-    end
-}
+      simp at h, rw dif_pos h, 
+      have : P.nth i = (vec_remove P ge).nth ⟨↑i, h⟩, rw vec_remove, simp, rw this,
+      exact CS.cop_legal ⟨↑i, h⟩ v (vec_remove P ge),
+    end }
+
+def ge_rob_init {G: refl_graph V} (RS : rob_strat G b) : vector V a → V := λ v, RS.rob_init (ge_cs_strat_init v)
+
+def ge_rob_fn {G: refl_graph V} (RS: rob_strat G b) : (vector V a) × V → V := 
+ λ x, RS.rob_strat ⟨ge_cs_strat_init x.1, x.2⟩ 
+
+def ge_rob_strat {G: refl_graph V} (RS: rob_strat G b) (ge: a ≤ b) : rob_strat G a := 
+{ rob_init := ge_rob_init RS,
+  rob_strat := ge_rob_fn RS,
+  rob_legal := begin
+  intros v P, rw ge_rob_fn, simp,
+  exact RS.rob_legal v (ge_cs_strat_init P), end,
+  rob_nocheat := begin
+  intros K cap, rw ge_rob_fn, simp,
+  suffices : capture (ge_cs_strat_init K.fst, K.snd), 
+  exact RS.rob_nocheat (ge_cs_strat_init K.fst, K.snd) this,
+  rw capture, cases cap with i cap, use fin.cast_le ge i,
+  rw ge_cs_strat_init, simp, rw if_pos (fin.is_lt i), exact cap,
+  end }
+
+
 lemma copnumber_upwards_closed {V: Type}{G: refl_graph V}  [fintype V] [decidable_eq V] [inhabited V] : ∀ a b : ℕ, a ≤ b → a ∈ {k : ℕ | k_cop_win G k} → b ∈ {k : ℕ | k_cop_win G k} :=
 begin
   intros a b ge win_a, simp, rw k_cop_win, simp at win_a, rw k_cop_win at win_a,
-  cases win_a with CS win_CS, use ge_strat CS ge,
-  rw winning_strat_cop, rw winning_strat_cop at win_CS, intro RS, sorry,
+  cases win_a with CS win_CS, use ge_cop_strat CS ge,
+  rw winning_strat_cop, rw winning_strat_cop at win_CS, intro RS, 
+  specialize win_CS (ge_rob_strat RS ge), cases win_CS with n win_CS, use n,
+  rw capture, cases win_CS with i win_CS, use fin.cast_le ge i, cases n,
+  --zero case 
+  rw round, simp, rw round at win_CS, simp at win_CS, rw ge_cop_strat, simp, 
+  rw ge_cs_strat_init, simp, rw if_pos (fin.is_lt i), rw win_CS, refl,
+  by_cases even(n.succ),
+  --even case
+  sorry, sorry,
 end
 
 end

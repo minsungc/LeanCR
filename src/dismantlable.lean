@@ -13,7 +13,7 @@ open classical
 open nat
 open function
 
-variables {V: Type} [fintype V] [inhabited V]
+variables {V: Type} [fintype V] [inhabited V] [decidable_eq V]
 
 def neighbor_set (G: refl_graph V) (v : V) : set V := set_of (G.adj v)
 def neighbor_set' (G: refl_graph V) (v : V) : set V := { w | G.adj v w }
@@ -34,7 +34,7 @@ A vtx w is a corner iff there exists some vertex v such that the neighbors of w 
 def corner_vtx (G: refl_graph V) (w: V)  : Prop :=
   (∃ v , v ≠ w ∧ (neighbor_set' G w) ⊆ (neighbor_set' G v))
 
-def has_corner [inhabited V] (G: refl_graph V) : Prop :=
+def has_corner (G: refl_graph V) : Prop :=
   fintype.card V=1 ∨ (∃ w , corner_vtx G w)
 
 def corner_cmp (G: refl_graph V) (v w: V)  : Prop :=
@@ -65,10 +65,10 @@ begin
   rw [odd_succ, nat.even_iff_not_odd.symm, nat.even_succ, nat.odd_iff_not_even.symm],
 end
 
-def rob_strat_fn {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : vector V 1 × V → V :=
+def rob_strat_fn (G: refl_graph V) : vector V 1 × V → V :=
   λ x , if h : ∃ w, G.adj x.2 w ∧ ¬ G.adj x.1.head w then some h else x.2
 
-theorem rsfn_works [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V}
+theorem rsfn_works {G: refl_graph V}
     (P : vector V 1 × V)  (h : ∃ w, G.adj P.2 w ∧ ¬ G.adj P.1.head w) :
   G.adj P.2 (rob_strat_fn G P) ∧ ¬ G.adj P.1.head (rob_strat_fn G P) :=
 begin
@@ -78,7 +78,7 @@ begin
   apply some_spec h,
 end
 
-theorem rsfn_works' [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V}
+theorem rsfn_works' {G: refl_graph V}
      (P : vector V 1 × V) (h : ¬ ∃ w, G.adj P.2 w ∧ ¬ G.adj P.1.head w) :
   rob_strat_fn G P = P.2 :=
 begin
@@ -87,7 +87,7 @@ begin
   contradiction,
 end
 
-lemma adj [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V) (P : vector V 1 × V) :
+lemma adj (G: refl_graph V) (P : vector V 1 × V) :
   G.adj P.2 (rob_strat_fn G P) :=
 begin
   by_cases h : ∃ w, G.adj P.2 w ∧ ¬ G.adj P.1.head w,
@@ -96,12 +96,12 @@ begin
   apply G.selfloop,
 end
 
-def rob_init_fn {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : vector V 1 → V := 
+def rob_init_fn  (G: refl_graph V) : vector V 1 → V := 
  λ x, if h : ∃ w, w ≠ x.head then 
  (if g: ∃ w, ¬ G.adj x.head w then some g else some h)
  else x.head
 
-def smart_robber {V: Type} [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V) : rob_strat G 1
+def smart_robber (G: refl_graph V) : rob_strat G 1
 :=
 { rob_init:= rob_init_fn G,
   rob_strat:= λ x , if h : ∃ w, G.adj x.2 w ∧ ¬ G.adj x.1.head w then some h else x.2,
@@ -134,7 +134,7 @@ def smart_robber {V: Type} [fintype V] [decidable_eq V] [inhabited V] (G: refl_g
 }
 
 --If the cop strategy is winning, the minimum round of capture is always achieved
-theorem wcs_min_rounds [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {k :ℕ }  
+theorem wcs_min_rounds {G: refl_graph V} {k :ℕ }  
   (CS: cop_strat G k) :
   winning_strat_cop CS → ∀ RS: rob_strat G k, ∃ n:ℕ , n = Inf{n:ℕ | capture (round CS RS n)} :=
 begin
@@ -146,7 +146,7 @@ begin
 end
 
 --Simple lemma for reasoning
-lemma cop_catch_nonempty [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} {win : winning_strat_cop CS}{k : ℕ } (cap : k = Inf{n:ℕ | capture (round CS RS n)}) : capture (round CS RS k) ∧ ∀ i < k, ¬ capture (round CS RS i) :=
+lemma cop_catch_nonempty {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} {win : winning_strat_cop CS}{k : ℕ } (cap : k = Inf{n:ℕ | capture (round CS RS n)}) : capture (round CS RS k) ∧ ∀ i < k, ¬ capture (round CS RS i) :=
 begin
   split,
   suffices this : {n_1 : ℕ | capture (round CS RS n_1)}.nonempty,
@@ -156,7 +156,7 @@ begin
 end
 
 --If the cop captures at some round n, then he captures for all m >= n
-theorem capt_upwards_closed [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} : ∀ k1 k2 : ℕ , k1 ≤ k2 → k1 ∈ {n:ℕ | capture (round CS RS n)} → k2 ∈ {n:ℕ | capture (round CS RS n)} :=
+theorem capt_upwards_closed {G: refl_graph V} {n: ℕ} {CS: cop_strat G n} {RS: rob_strat G n} : ∀ k1 k2 : ℕ , k1 ≤ k2 → k1 ∈ {n:ℕ | capture (round CS RS n)} → k2 ∈ {n:ℕ | capture (round CS RS n)} :=
 begin
   intros k1 k2 le inc,
   suffices : ∀ k1, k1 ∈ {n:ℕ | capture (round CS RS n)} → k1.succ ∈ {n:ℕ | capture (round CS RS n)}, { exact nat.le_rec_on le this inc,}, clear inc le k1 k2,
@@ -177,7 +177,7 @@ begin
 end
 
 -- A smart robber will never get caught on their own turn
-theorem smart_capture_cop_move [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 0) : odd n :=
+theorem smart_capture_cop_move {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 0) : odd n :=
 begin
   rw winning_strat_cop at p, specialize p (smart_robber G), 
   have non: {n:ℕ | capture (round CS (smart_robber G) n)}.nonempty, exact p,
@@ -225,7 +225,7 @@ begin
 end
 
 --A smart robber will stay in place before cop captures.
-theorem smart_rob_in_place [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 1) : (round CS (smart_robber G) n.pred.pred).2  = (round CS (smart_robber G) n.pred).2 :=
+theorem smart_rob_in_place {G: refl_graph V} {CS: cop_strat G 1} {n : ℕ} (p: winning_strat_cop CS) (cap : n = Inf{n:ℕ | capture (round CS (smart_robber G) n)}) (gt: n > 1) : (round CS (smart_robber G) n.pred.pred).2  = (round CS (smart_robber G) n.pred).2 :=
 begin
  cases n, let x := nat.not_lt_zero 1, contradiction,
  cases n, let x := nat.lt_irrefl 1, contradiction,
@@ -255,7 +255,7 @@ begin
  exact p,
 end
 
-lemma cwg_1_cop_win {V: Type} [fintype V] [inhabited V] (G: refl_graph V): cop_win_graph G ↔ k_cop_win G 1 :=
+lemma cwg_1_cop_win (G: refl_graph V): cop_win_graph G ↔ k_cop_win G 1 :=
 begin
  split, intro cwg, let non := lots_of_cops G,
  let E:= nat.Inf_mem non, rw [cop_win_graph,cop_number] at cwg, rw cwg at E, exact E,
@@ -266,7 +266,7 @@ begin
  repeat {apply_instance},
 end
 
-lemma sm_rob_turn0_catch_imp_K1 [fintype V] [decidable_eq V] [inhabited V] {G: refl_graph V} {CS: cop_strat G 1} (p: winning_strat_cop CS) : capture (round CS (smart_robber G) 0) → fintype.card V = 1 :=
+lemma sm_rob_turn0_catch_imp_K1 {G: refl_graph V} {CS: cop_strat G 1} (p: winning_strat_cop CS) : capture (round CS (smart_robber G) 0) → fintype.card V = 1 :=
 begin
   intro cap, rw [capture, round] at cap, simp at cap,
   cases cap with i cap, have this: i=0, simp, rw this at cap, clear this i,
@@ -279,8 +279,7 @@ begin
   exact fintype.card_eq_one_of_forall_eq this,
 end
 
-theorem cwg_has_corner [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V): 
-cop_win_graph G → has_corner G := 
+theorem cwg_has_corner  (G: refl_graph V): cop_win_graph G → has_corner G := 
 begin
   intro CW,
   rw cwg_1_cop_win at CW,
