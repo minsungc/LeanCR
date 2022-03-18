@@ -117,26 +117,26 @@ def singleton_graph :refl_graph unit := complete_refl_graph unit
 
 structure graph_hom {V W: Type} (G  : refl_graph V) (H: refl_graph W) :=
 (to_fun : V → W)
-(mapEdges: ∀ v w, G.adj v w → H.adj (to_fun v) (to_fun w))
+(map_edges: ∀ v w, G.adj v w → H.adj (to_fun v) (to_fun w))
 
 def graph_hom_comp {U V W : Type} {G: refl_graph U} {H: refl_graph V} {I: refl_graph W} 
   (f: graph_hom G H) (g: graph_hom H I) : graph_hom G I :=
 {
   to_fun := g.to_fun ∘ f.to_fun ,
-  mapEdges := 
+  map_edges := 
   begin
     intros u v,
     intro h,
     have adj_H : H.adj (f.to_fun u) (f.to_fun v),
-      exact f.mapEdges u v h,
-    exact g.mapEdges (f.to_fun u) (f.to_fun v) adj_H,
+      exact f.map_edges u v h,
+    exact g.map_edges (f.to_fun u) (f.to_fun v) adj_H,
   end 
 }
 
 def trivial_hom {V:Type} (G: refl_graph V) : graph_hom G G :=
 {
   to_fun := λ x, x,
-  mapEdges :=
+  map_edges :=
   begin
     intros u v h, 
     exact h,
@@ -146,7 +146,7 @@ def trivial_hom {V:Type} (G: refl_graph V) : graph_hom G G :=
 structure graph_iso {V W: Type} (G  : refl_graph V) (H: refl_graph W) :=
 (to_fun : V → W)
 (bij: function.bijective to_fun)
-(mapEdges: ∀ v w, G.adj v w ↔ H.adj (to_fun v) (to_fun w))
+(map_edges: ∀ v w, G.adj v w ↔ H.adj (to_fun v) (to_fun w))
 
 def equivgraph {V W: Type} (G  : refl_graph V) (H: refl_graph W)  : Prop := nonempty(graph_iso G H)
 
@@ -166,7 +166,7 @@ def identity_iso {V: Type} (G: refl_graph V) : graph_iso G G:=
         use x,
       },
     end,
-  mapEdges:=
+  map_edges:=
     begin
       intros v w,
       split,
@@ -193,7 +193,6 @@ structure rob_strat {V: Type} [fintype V] (G: refl_graph V) (n : ℕ ) :=
 (rob_strat: vector V n× V → V)
 (rob_nocheat: ∀ K,  capture K → rob_strat K = K.2)
 (rob_legal: ∀ v P, G.adj v (rob_strat (P,v)))
-
 
 noncomputable def round {V: Type} [fintype V] {G: refl_graph V} {k : ℕ } (CS: cop_strat G k) (RS: rob_strat G k) : ℕ → vector V k × V
 | 0 := (CS.cop_init, RS.rob_init (CS.cop_init))

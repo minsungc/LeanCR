@@ -33,7 +33,7 @@ A vtx w is a corner iff there exists some vertex v such that the neighbors of w 
 noncomputable theory 
 
 def corner_vtx (G: refl_graph V) (w: V)  : Prop :=
-  (∃ v , v ≠ w ∧ (neighbor_set' G w) ⊆ (neighbor_set' G v))
+  (∃ (v: V) (h: v ≠ w), (neighbor_set' G w) ⊆ (neighbor_set' G v))
 
 def cornering_vtx (G: refl_graph V) (w: V) (h: corner_vtx G w) : V := some h
 
