@@ -1,16 +1,36 @@
 import dismantlable
 
-variables {V: Type} [fintype V] [inhabited V]
+variables {V: Type} [fintype V] [inhabited V] [decidable_eq V] {c: V}
+
+noncomputable theory 
 
 def induced_subgraph (S: set V) (G: refl_graph V) : refl_graph {v:V// v ∈ S} :=
 { adj := λ a b, G.adj a b, 
   sym :=  λ a b h, G.sym h,
   selfloop := begin intro a, apply G.selfloop end }
 
-structure retract {c: V} (G: refl_graph V) (H:= induced_subgraph {v: V | v ≠ c} G)  := 
-  (f: graph_hom G H)
-  (id: ∀ v ≠ c, v = f.to_fun(v))
-  (corner: corner_cmp G c ↑(f.to_fun(c)))
+def ind_subgraph_one_vtx (v: V) (G: refl_graph V) : refl_graph {w : V // w ≠ v}
+:= induced_subgraph (λ x, x ≠ v) G
+
+-- structure fold (G: refl_graph V) (H:= induced_subgraph {v: V | v ≠ c} G)  := 
+--   (f: graph_hom G H)
+--   (id: ∀ v ≠ c, v = f.to_fun(v))
+  -- (corner: corner_cmp G c ↑(f.to_fun(c)))
+
+def retract (G: refl_graph V) (H:= ind_subgraph_one_vtx c G) : Prop :=
+∃ f: graph_hom G H, ∀ v ≠ c, v = f.to_fun(v)
+
+def to_subtype {G: refl_graph V} (h: corner_vtx G c) : {w : V // w ≠ c} :=
+begin
+  rw corner_vtx at h, have h2: ∃ (v: V) (neq: v ≠ c), neighbor_set' G c ⊆ neighbor_set' G v,
+  
+end
+
+def corner_retract (G: refl_graph V) (H:= ind_subgraph_one_vtx c G) (h : corner_vtx G c): graph_hom G H :=
+{
+  to_fun:= λ v, if v = c then cornering_vtx G c h else v
+}
+
 
 def dismantle (G: refl_graph V) : list V → Prop
 | [] := G ≅ singleton_graph 

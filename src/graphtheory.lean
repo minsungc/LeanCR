@@ -24,6 +24,8 @@ structure refl_graph (V: Type):=
 (sym : symmetric adj)
 (selfloop : reflexive adj . obviously)
 
+def get_vtxs {V: Type} (G: refl_graph V) : Type := V
+
 def complete_refl_graph (V: Type) : refl_graph V :=
 { adj := λ u v, true,
   sym := λ u v h,  trivial ,

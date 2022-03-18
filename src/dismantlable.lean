@@ -30,9 +30,12 @@ end
 Corner vertices, an important concept in Cops and Robbers
 A vtx w is a corner iff there exists some vertex v such that the neighbors of w is a subset of the neighbors of v
 -/
+noncomputable theory 
 
 def corner_vtx (G: refl_graph V) (w: V)  : Prop :=
   (∃ v , v ≠ w ∧ (neighbor_set' G w) ⊆ (neighbor_set' G v))
+
+def cornering_vtx (G: refl_graph V) (w: V) (h: corner_vtx G w) : V := some h
 
 def has_corner (G: refl_graph V) : Prop :=
   fintype.card V=1 ∨ (∃ w , corner_vtx G w)
