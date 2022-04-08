@@ -146,7 +146,7 @@ def image_strat {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G 
     suffices : G.adj (P.nth i) move,
       exact ind_subgraph_is_induced (λ (x : V), x ≠ c) (P.nth i) move this,
     let G_legal := CS.cop_legal i v (vector.map (λ t, ↑t) P), simp at G_legal,
-    
+    sorry,
   end,
 }
 
