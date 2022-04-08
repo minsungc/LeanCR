@@ -11,9 +11,11 @@ def induced_subgraph (S: set V) (G: refl_graph V) : refl_graph {v:V// v ∈ S} :
   sym :=  λ a b h, G.sym h,
   selfloop := begin intro a, apply G.selfloop end}
 
-lemma ind_subgraph_is_induced {G: refl_graph V} : ∀ S: set V, ∀ v w : {v:V// v ∈ S}, G.adj v w → (induced_subgraph S G).adj v w :=
+lemma ind_subgraph_is_induced {G: refl_graph V} : ∀ S: set V, ∀ v w : {v:V// v ∈ S}, G.adj v w ↔ (induced_subgraph S G).adj v w :=
 begin
-  intros S v w Gadj, rw induced_subgraph, simp, exact Gadj,
+  intros S v w, split, 
+  intro Gadj, rw induced_subgraph, exact Gadj,
+  intro Iadj, rw induced_subgraph at Iadj, exact Iadj, 
 end
 
 -- Induced subgraph of one vertex removed
@@ -88,7 +90,7 @@ begin
   have adj : G.adj (cing_vtx h) v,
     exact cing_vtx_nhds_vtx h v hyp,
   rw ind_subgraph_one_vtx, 
-  exact ind_subgraph_is_induced (λ (x : V), x ≠ c) ⟨cing_vtx h, _⟩ ⟨v, eq⟩ adj,
+  exact (ind_subgraph_is_induced (λ (x : V), x ≠ c) ⟨cing_vtx h, _⟩ ⟨v, eq⟩).1 adj,
 end
 
 --QUESTIONS ABOUT OPT_PARAM
@@ -104,6 +106,35 @@ end
 
 -- end
 
+-- retract function is identity on non-corner vtxs
+def retract_fn_noncorner_vtx (G: refl_graph V) (h: corner_vtx G c) : ∀ (v: {w // w ≠ c}), retract_fun G (ind_subgraph_one_vtx c G) h ↑v = v :=
+begin
+  intro v, rw [retract_fun], simp, rw cing_vtx_subtype, intro eq,
+  have neq : ↑ v ≠ c, exact v.2, exfalso, exact neq eq,
+end
+
+def retract_fn_noncorner_vtx_fn (G: refl_graph V) (h: corner_vtx G c) : function.equiv ((retract_fun G (ind_subgraph_one_vtx c G) h) ∘ coe) (λ x, x) :=
+begin
+  rw function.equiv, exact retract_fn_noncorner_vtx G h,
+end
+
+--retract function is identity on lists and vectors as well
+def retract_fn_noncorner_vtx_list (G: refl_graph V) (h: corner_vtx G c) : ∀ (v: list {w // w ≠ c}), list.map (retract_fun G (ind_subgraph_one_vtx c G) h ∘ coe) v = v :=
+begin
+  intro v, induction v, simp,
+  simp, split, exact retract_fn_noncorner_vtx G h v_hd, exact v_ih,
+end
+
+def retract_fn_noncorner_vtx_vect {n : ℕ } (G: refl_graph V) (h: corner_vtx G c) : ∀ (v: vector  {w // w ≠ c} n), vector.map (retract_fun G (ind_subgraph_one_vtx c G) h ∘ coe) v = v :=
+begin
+  intro v, induction v, rw vector.map, simp, exact retract_fn_noncorner_vtx_list G h v_val,
+end
+
+def vec_map_comp {a b c: Type} {n : ℕ} (f: a → b) (g: b → c) : ∀ (v: vector a n), vector.map g (vector.map f v) = vector.map (g ∘ f) v :=
+begin
+  intro v, induction v, rw vector.map, rw vector.map, rw vector.map, simp,
+end
+
 def corner_retract (G: refl_graph V) (h : corner_vtx G c): graph_hom G (ind_subgraph_one_vtx c G) :=
 { to_fun := retract_fun G (ind_subgraph_one_vtx c G) h,
   map_edges :=
@@ -116,9 +147,9 @@ def corner_retract (G: refl_graph V) (h : corner_vtx G c): graph_hom G (ind_subg
     rw retract_fun, simp, rw [dif_neg v_eq, dif_pos w_eq, cing_vtx_subtype], 
     rw [w_eq, rgraph_adj_symm] at adj,
     let cing_vtx_adj := cing_vtx_nhds_vtx h v adj,
-    exact ind_subgraph_is_induced (λ (x : V), x ≠ c) ⟨v, v_eq⟩ ⟨cing_vtx h, _⟩ (rgraph_adj_symm.1 cing_vtx_adj),
+    exact (ind_subgraph_is_induced (λ (x : V), x ≠ c) ⟨v, v_eq⟩ ⟨cing_vtx h, _⟩).1(rgraph_adj_symm.1 cing_vtx_adj),
     rw retract_fun, simp, rw [dif_neg v_eq, dif_neg w_eq],
-    exact ind_subgraph_is_induced (λ (x : V), x ≠ c) ⟨v, v_eq⟩ ⟨w, w_eq⟩ adj,
+    exact (ind_subgraph_is_induced (λ (x : V), x ≠ c) ⟨v, v_eq⟩ ⟨w, w_eq⟩).1 adj,
   end
 }
 
@@ -137,16 +168,32 @@ def image_strat {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G 
   cop_strat := image_strat_fun G h CS,
   cop_nocheat :=
   begin
-    sorry,
+    intros K cap, rw image_strat_fun, simp, 
+    have : capture (cr_pos_from_retract G h K),
+      rw capture, cases cap with i cap, use i, rw cr_pos_from_retract, simp, 
+      by_contradiction, let nocap := subtype.ne_of_val_ne h, contradiction,
+    let G_nocheat := CS.cop_nocheat (cr_pos_from_retract G h K) this,
+    rw corner_retract, simp, rw G_nocheat, rw cr_pos_from_retract, simp,
+    let map_comp := vec_map_comp coe (retract_fun G (ind_subgraph_one_vtx c G) h) K.1,
+    rw map_comp, exact retract_fn_noncorner_vtx_vect G h K.1,
   end,
   cop_legal :=
   begin
     intros i v P, rw image_strat_fun, simp,
-    let move := ((corner_retract G h).to_fun ((CS.cop_strat (cr_pos_from_retract G h (P, v))).nth i)), 
+    let move := ((corner_retract G h).to_fun ((CS.cop_strat (cr_pos_from_retract G h (P, v))).nth i)),
     suffices : G.adj (P.nth i) move,
-      exact ind_subgraph_is_induced (λ (x : V), x ≠ c) (P.nth i) move this,
+      exact (ind_subgraph_is_induced (λ (x : V), x ≠ c) (P.nth i) move).1 this,
     let G_legal := CS.cop_legal i v (vector.map (λ t, ↑t) P), simp at G_legal,
-    sorry,
+    let G_copmove := (CS.cop_strat (vector.map coe P, ↑v)).nth i,
+    by_cases is_c : G_copmove = c, swap,
+    have : ↑((corner_retract G h).to_fun G_copmove) = G_copmove,
+      rw corner_retract, simp, rw retract_fun, simp, rw dif_neg is_c, refl,
+    change G.adj ↑(P.nth i) G_copmove at G_legal, rw this.symm at G_legal, exact G_legal,
+    have : ↑((corner_retract G h).to_fun G_copmove) = cing_vtx h,
+      rw corner_retract, simp, rw retract_fun, simp, rw [dif_pos is_c, cing_vtx_subtype], simp,
+    change G.adj ↑(P.nth i) G_copmove at G_legal, rw is_c at G_legal, 
+    let cing_adj := (cing_vtx_nhds_vtx h) ↑(P.nth i) (rgraph_adj_symm.1 G_legal),
+    rw this.symm at cing_adj, exact rgraph_adj_symm.1 cing_adj,
   end,
 }
 
