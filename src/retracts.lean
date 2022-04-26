@@ -57,35 +57,37 @@ theorem val_cing_vtx_subtype {v: V} {G: refl_graph V} (h: corner_vtx G v) : (cin
 -- from type V to subtype {w: V // w ≠ v}, for cornering vtxs
 def not_corner_vtx_subtype (v: V) (G: refl_graph V) (h: v ≠ c) : {w: V // w ≠ c} := ⟨v,h⟩
 
-def retract (G: refl_graph V) (H := ind_subgraph_one_vtx c G) : Prop :=
-∃ f: graph_hom G H, ∀ v ≠ c, v = f.to_fun(v)
+def has_retract (G: refl_graph V)  : Prop := 
+∃ f: graph_hom G (ind_subgraph_one_vtx c G), ∀ v ≠ c, v = f.to_fun(v)
 
-def retract_fun (G: refl_graph V) (H:= ind_subgraph_one_vtx c G) (h : corner_vtx G c) :
+def retract_fun (G: refl_graph V) (h : corner_vtx G c) :
 V → {w: V // w ≠ c} := λ v, if eq: v = c then cing_vtx_subtype h else ⟨v,eq⟩
 
 --retract_fun works correctly
-lemma retract_fun_works_pos_refl (G: refl_graph V) (H:= ind_subgraph_one_vtx c G) (h: corner_vtx G c) :
-H.adj (retract_fun G H h c) (cing_vtx_subtype h) :=
+lemma retract_fun_works_pos_refl (G: refl_graph V) (h: corner_vtx G c) :
+let H:= ind_subgraph_one_vtx c G in
+H.adj (retract_fun G h c) (cing_vtx_subtype h) :=
 begin
-  suffices : retract_fun G H h c = cing_vtx_subtype h,
+  intro H,
+  suffices : retract_fun G h c = cing_vtx_subtype h,
   rw this, exact H.selfloop (cing_vtx_subtype h),
   rw retract_fun, simp,
 end
 
 lemma retract_fun_works_neg_refl (G: refl_graph V) (H:= ind_subgraph_one_vtx c G) (h: corner_vtx G c) :
-∀ (v: V) (ne: v ≠ c), H.adj (retract_fun G H h v) (not_corner_vtx_subtype v G ne) :=
+∀ (v: V) (ne: v ≠ c), H.adj (retract_fun G h v) (not_corner_vtx_subtype v G ne) :=
 begin
   intros v ne,
-  suffices : retract_fun G H h v = not_corner_vtx_subtype v G ne,
+  suffices : retract_fun G h v = not_corner_vtx_subtype v G ne,
   rw this, exact H.selfloop (not_corner_vtx_subtype v G ne),
   rw retract_fun, simp, rw [dif_neg ne, not_corner_vtx_subtype],
 end
 
 -- retract_fun preserves edge relations
 lemma retract_fun_works_pos_adj (G: refl_graph V) (h: corner_vtx G c) :
-∀ (v: V) (adj: G.adj c v), (ind_subgraph_one_vtx c G).adj (retract_fun G (ind_subgraph_one_vtx c G) h c) (retract_fun G (ind_subgraph_one_vtx c G) h v) :=
+∀ (v: V) (adj: G.adj c v), (ind_subgraph_one_vtx c G).adj (retract_fun G  h c) (retract_fun G  h v) :=
 begin
-  intros v hyp, by_cases eq: v=c, rw eq, exact (ind_subgraph_one_vtx c G).selfloop (retract_fun G (ind_subgraph_one_vtx c G) h c),
+  intros v hyp, by_cases eq: v=c, rw eq, exact (ind_subgraph_one_vtx c G).selfloop (retract_fun G h c),
   rw retract_fun, simp, rw [dif_neg eq], rw cing_vtx_subtype,
   have adj : G.adj (cing_vtx h) v,
     exact cing_vtx_nhds_vtx h v hyp,
@@ -93,39 +95,26 @@ begin
   exact (ind_subgraph_is_induced (λ (x : V), x ≠ c) ⟨cing_vtx h, _⟩ ⟨v, eq⟩).1 adj,
 end
 
---QUESTIONS ABOUT OPT_PARAM
--- lemma retract_fun_works_pos_adj' (G: refl_graph V) (H := ind_subgraph_one_vtx c G) (h: corner_vtx G c) :
--- ∀ (v: V) (adj: G.adj c v), H.adj (retract_fun G H h c) (retract_fun G H h v) :=
--- begin
---   intros v hyp, by_cases eq: v=c, rw eq, exact H.selfloop (retract_fun G H h c),
---   rw retract_fun, simp, rw [dif_neg eq], rw cing_vtx_subtype,
---   have adj : G.adj (cing_vtx h) v,
---     exact cing_vtx_nhds_vtx h v hyp,
---   let res := ind_subgraph_is_induced (λ (x : V), x ≠ c) ⟨cing_vtx h, _⟩ ⟨v, eq⟩ adj,
---   change (ind_subgraph_one_vtx c G).adj _ _,
-
--- end
-
 -- retract function is identity on non-corner vtxs
-def retract_fn_noncorner_vtx (G: refl_graph V) (h: corner_vtx G c) : ∀ (v: {w // w ≠ c}), retract_fun G (ind_subgraph_one_vtx c G) h ↑v = v :=
+def retract_fn_noncorner_vtx (G: refl_graph V) (h: corner_vtx G c) : ∀ (v: {w // w ≠ c}), retract_fun G h ↑v = v :=
 begin
   intro v, rw [retract_fun], simp, rw cing_vtx_subtype, intro eq,
   have neq : ↑ v ≠ c, exact v.2, exfalso, exact neq eq,
 end
 
-def retract_fn_noncorner_vtx_fn (G: refl_graph V) (h: corner_vtx G c) : function.equiv ((retract_fun G (ind_subgraph_one_vtx c G) h) ∘ coe) (λ x, x) :=
+def retract_fn_noncorner_vtx_fn (G: refl_graph V) (h: corner_vtx G c) : function.equiv ((retract_fun G h) ∘ coe) (λ x, x) :=
 begin
   rw function.equiv, exact retract_fn_noncorner_vtx G h,
 end
 
 --retract function is identity on lists and vectors as well
-def retract_fn_noncorner_vtx_list (G: refl_graph V) (h: corner_vtx G c) : ∀ (v: list {w // w ≠ c}), list.map (retract_fun G (ind_subgraph_one_vtx c G) h ∘ coe) v = v :=
+def retract_fn_noncorner_vtx_list (G: refl_graph V) (h: corner_vtx G c) : ∀ (v: list {w // w ≠ c}), list.map (retract_fun G h ∘ coe) v = v :=
 begin
   intro v, induction v, simp,
   simp, split, exact retract_fn_noncorner_vtx G h v_hd, exact v_ih,
 end
 
-def retract_fn_noncorner_vtx_vect {n : ℕ } (G: refl_graph V) (h: corner_vtx G c) : ∀ (v: vector  {w // w ≠ c} n), vector.map (retract_fun G (ind_subgraph_one_vtx c G) h ∘ coe) v = v :=
+def retract_fn_noncorner_vtx_vect {n : ℕ } (G: refl_graph V) (h: corner_vtx G c) : ∀ (v: vector  {w // w ≠ c} n), vector.map (retract_fun G h ∘ coe) v = v :=
 begin
   intro v, induction v, rw vector.map, simp, exact retract_fn_noncorner_vtx_list G h v_val,
 end
@@ -135,13 +124,32 @@ begin
   intro v, induction v, rw vector.map, rw vector.map, rw vector.map, simp,
 end
 
+lemma ind_subgraph_is_induced' {G: refl_graph V} (h: corner_vtx G c): ∀ v w : V, G.adj v w → (ind_subgraph_one_vtx c G).adj ((retract_fun G h) v) ((retract_fun G h) w) :=
+begin
+  intros v w,
+  rw retract_fun, simp, 
+  by_cases v_eq : v=c, by_cases w_eq : w=c,
+  rw [dif_pos v_eq, dif_pos w_eq, v_eq, w_eq], intro Gadj,
+  exact (ind_subgraph_one_vtx c G).selfloop (cing_vtx_subtype h),
+  rw [dif_pos v_eq, dif_neg w_eq, cing_vtx_subtype], intro Gadj, rw v_eq at Gadj,
+  let nbors := cing_vtx_nhds_vtx h w Gadj,
+  exact (ind_subgraph_is_induced (λ x, x ≠ c) ⟨cing_vtx h, _⟩ ⟨w, w_eq⟩).1 nbors,
+  by_cases w_eq : w=c,
+  rw [dif_neg v_eq, dif_pos w_eq, cing_vtx_subtype], intro Gadj, rw [w_eq, rgraph_adj_symm] at Gadj,
+  let nbors := cing_vtx_nhds_vtx h v Gadj,
+  let ind := (ind_subgraph_is_induced (λ x, x ≠ c) ⟨cing_vtx h, _⟩ ⟨v, v_eq⟩).1 nbors,
+  exact rgraph_adj_symm.1 ind,
+  rw [dif_neg v_eq, dif_neg w_eq],
+  exact (ind_subgraph_is_induced (λ x, x ≠ c) ⟨v, v_eq⟩ ⟨w, w_eq⟩).1,
+end
+
 def corner_retract (G: refl_graph V) (h : corner_vtx G c): graph_hom G (ind_subgraph_one_vtx c G) :=
-{ to_fun := retract_fun G (ind_subgraph_one_vtx c G) h,
+{ to_fun := retract_fun G h,
   map_edges :=
   begin
     let H := (ind_subgraph_one_vtx c G),
     intros v w adj, by_cases v_eq: v=c, by_cases w_eq: w = c,
-    rw [v_eq, w_eq], exact H.selfloop (retract_fun G H h c),
+    rw [v_eq, w_eq], exact H.selfloop (retract_fun G h c),
     rw v_eq, rw v_eq at adj, exact retract_fun_works_pos_adj G h w adj,
     by_cases w_eq: w=c,
     rw retract_fun, simp, rw [dif_neg v_eq, dif_pos w_eq, cing_vtx_subtype], 
@@ -174,7 +182,7 @@ def image_strat {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G 
       by_contradiction, let nocap := subtype.ne_of_val_ne h, contradiction,
     let G_nocheat := CS.cop_nocheat (cr_pos_from_retract G h K) this,
     rw corner_retract, simp, rw G_nocheat, rw cr_pos_from_retract, simp,
-    let map_comp := vec_map_comp coe (retract_fun G (ind_subgraph_one_vtx c G) h) K.1,
+    let map_comp := vec_map_comp coe (retract_fun G h) K.1,
     rw map_comp, exact retract_fn_noncorner_vtx_vect G h K.1,
   end,
   cop_legal :=
@@ -197,10 +205,42 @@ def image_strat {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G 
   end,
 }
 
-lemma cop_num_le_retract {V: Type} [fintype V] [decidable_eq V] [inhabited V] {c:V} (G: refl_graph V) (H := induced_subgraph {v: V | v ≠ c} G) :
-retract G H → cop_number H ≤ cop_number G :=
+-- coercing a robber strat on a graph with corner removed back to the original graph.
+def rob_strat_coe {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (RS: rob_strat (ind_subgraph_one_vtx c G) n) : rob_strat G n :=
+{
+  rob_init := λ x, RS.rob_init (vector.map (corner_retract G h).to_fun x),
+  rob_strat := λ s, RS.rob_strat (cr_pos_to_retract G h s),
+  rob_nocheat :=
+  begin
+    sorry,
+  end,
+  rob_legal :=
+  begin
+    intros v P, by_cases v=c, swap,
+    rw [cr_pos_to_retract, corner_retract], simp,
+    sorry,
+  end
+}
+
+lemma cwg_retract_is_cw (G: refl_graph V) : let H := induced_subgraph {v: V | v ≠ c} G in
+corner_vtx G c →  cop_win_graph G → cop_win_graph H :=
 begin
-  intro hyp,
+  intros H corner cw, 
+  rw [cop_win_graph, cop_number] at cw,
+  have G_win : k_cop_win G 1,
+    exact ((nat.Inf_upward_closed_eq_succ_iff copnumber_upwards_closed 0).1 cw).1,
+  clear cw, rw k_cop_win at G_win, cases G_win with CS win,
+  rw [cop_win_graph, cop_number, nat.Inf_upward_closed_eq_succ_iff],
+  split, simp, rw k_cop_win, use image_strat G corner CS, rw winning_strat_cop,
+  intro RS, let G_RS := rob_strat_coe G corner RS, specialize win G_RS, cases win with n win,
+  use n, rw capture at win, cases win with i win, have : i=0, simp, rw this at win, clear this i,
+  simp at win,
+end
+
+lemma cop_num_le_retract (G: refl_graph V) : let H := induced_subgraph {v: V | v ≠ c} G in
+corner_vtx G c → retract G H → cop_number H ≤ cop_number G :=
+begin
+  intros H h hyp,
   cases hyp with f id corner,
   unfold cop_number,
   let n:= Inf {k : ℕ | k_cop_win G k},
@@ -210,8 +250,8 @@ begin
     exact nat.Inf_mem (lots_of_cops G),
   rw k_cop_win at n_win,
   cases n_win with CS hCS,
-  let CS' := cop_strat H n,
-  sorry,
+  rw k_cop_win, use image_strat G h CS,
+  rw winning_strat_cop, intro RS, sorry,
 end
 
 
