@@ -60,6 +60,9 @@ def not_corner_vtx_subtype (v: V) (G: refl_graph V) (h: v ≠ c) : {w: V // w �
 def has_retract (G: refl_graph V)  : Prop := 
 ∃ f: graph_hom G (ind_subgraph_one_vtx c G), ∀ v ≠ c, v = f.to_fun(v)
 
+-- somehow this doesn't work
+lemma K1_no_retract : ¬ has_retract (singleton_graph) :=
+
 def retract_fun (G: refl_graph V) (h : corner_vtx G c) :
 V → {w: V // w ≠ c} := λ v, if eq: v = c then cing_vtx_subtype h else ⟨v,eq⟩
 
@@ -205,55 +208,81 @@ def image_strat {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G 
   end,
 }
 
+-- goal: to prove that a retract H of a graph G has cop_number H ≤ cop_number G.
+-- the standard proof method of this is to "simulate two games played on G and H where the cop strategy is the image_strat and the robber strategy on G is restricted to H."
+
+variables {n: ℕ} (G: refl_graph V) (RS: rob_strat (ind_subgraph_one_vtx c G) n)
+
+def rob_coe_init_fn (h: corner_vtx G c) : vector V n → V :=
+λ x, RS.rob_init (vector.map (corner_retract G h).to_fun x)
+
+def rob_coe_init_fn_restr (h: corner_vtx G c) : ∀ x, (rob_coe_init_fn G RS h) x ≠ c :=
+begin
+  intro x, rw rob_coe_init_fn, simp,
+  exact (RS.rob_init (vector.map (corner_retract G h).to_fun x)).2,
+end
+
+def rob_coe_strat_fn (h: corner_vtx G c) : vector V n × V → V := λ s, RS.rob_strat (cr_pos_to_retract G h s)
+
+def rob_coe_strat_fn_restr (h: corner_vtx G c) : ∀ s, (rob_coe_strat_fn G RS h) s ≠ c :=
+begin
+  intro s, rw rob_coe_strat_fn, simp,
+  exact (RS.rob_strat (cr_pos_to_retract G h s)).2,
+end
+
 -- coercing a robber strat on a graph with corner removed back to the original graph.
 def rob_strat_coe {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (RS: rob_strat (ind_subgraph_one_vtx c G) n) : rob_strat G n :=
 {
-  rob_init := λ x, RS.rob_init (vector.map (corner_retract G h).to_fun x),
-  rob_strat := λ s, RS.rob_strat (cr_pos_to_retract G h s),
+  rob_init := rob_coe_init_fn G RS h,
+  rob_strat := rob_coe_strat_fn G RS h,
   rob_nocheat :=
   begin
-    sorry,
+    intros K cap, rw rob_coe_strat_fn, simp, rw cr_pos_to_retract, rw corner_retract, simp,
+    let RS_nocheat := RS.rob_nocheat (cr_pos_to_retract G h K), sorry,
   end,
   rob_legal :=
   begin
     intros v P, by_cases v=c, swap,
     rw [cr_pos_to_retract, corner_retract], simp,
-    sorry,
+    sorry, sorry,
   end
 }
 
-lemma cwg_retract_is_cw (G: refl_graph V) : let H := induced_subgraph {v: V | v ≠ c} G in
+lemma cop_num_le_retract [inhabited {w : V// w ≠ c}] (G: refl_graph V) : let H := ind_subgraph_one_vtx c G in
+corner_vtx G c → cop_number H ≤ cop_number G :=
+begin 
+  intros H h,
+  unfold cop_number,
+  let n := Inf {k : ℕ | k_cop_win G k},
+  suffices : k_cop_win H n, exact nat.Inf_le this,
+  have n_win: k_cop_win G n, exact nat.Inf_mem (lots_of_cops G),
+  rw k_cop_win at n_win, cases n_win with CS n_win,
+  rw k_cop_win, use image_strat G h CS,
+  rw winning_strat_cop, intro RS, 
+  rw winning_strat_cop at n_win, specialize n_win (rob_strat_coe G h RS),
+  cases n_win with m cap, use m, cases m, 
+  -- base case
+  rw [round, rob_strat_coe] at cap, simp at cap,
+  rw capture at cap, cases cap with i cap, simp at cap,  
+  have no_cap_at_c : CS.cop_init.nth i ≠ c,
+    let x := rob_coe_init_fn_restr G RS h CS.cop_init, rw cap.symm at x, exact x,
+  rw [round, capture], use i, simp, rw subtype.ext_iff, rw rob_coe_init_fn at cap, simp at cap, conv {congr, skip, rw image_strat,}, simp, rw image_strat_init, rw cap.symm,
+  rw image_strat, simp, rw image_strat_init, simp, rw corner_retract, simp, rw retract_fun, simp, rw dif_neg no_cap_at_c, refl, 
+  -- inductive case, must case on parity of round
+  sorry,
+end
+
+-- how to circumvent assuming that subtype is inhabited
+lemma cwg_retract_is_cw [inhabited {w : V// w ≠ c}] ( G: refl_graph V) : let H := ind_subgraph_one_vtx c G in
 corner_vtx G c →  cop_win_graph G → cop_win_graph H :=
 begin
   intros H corner cw, 
-  rw [cop_win_graph, cop_number] at cw,
-  have G_win : k_cop_win G 1,
-    exact ((nat.Inf_upward_closed_eq_succ_iff copnumber_upwards_closed 0).1 cw).1,
-  clear cw, rw k_cop_win at G_win, cases G_win with CS win,
-  rw [cop_win_graph, cop_number, nat.Inf_upward_closed_eq_succ_iff],
-  split, simp, rw k_cop_win, use image_strat G corner CS, rw winning_strat_cop,
-  intro RS, let G_RS := rob_strat_coe G corner RS, specialize win G_RS, cases win with n win,
-  use n, rw capture at win, cases win with i win, have : i=0, simp, rw this at win, clear this i,
-  simp at win,
+  rw cop_win_graph at cw, 
+  let leq := cop_num_le_retract G corner, rw cw at leq,
+  have : 0 < cop_number (ind_subgraph_one_vtx c G) ,
+    exact zero_cops_cant_win (ind_subgraph_one_vtx c G),
+  rw cop_win_graph, linarith,
 end
-
-lemma cop_num_le_retract (G: refl_graph V) : let H := induced_subgraph {v: V | v ≠ c} G in
-corner_vtx G c → retract G H → cop_number H ≤ cop_number G :=
-begin
-  intros H h hyp,
-  cases hyp with f id corner,
-  unfold cop_number,
-  let n:= Inf {k : ℕ | k_cop_win G k},
-  suffices : k_cop_win H n,
-    exact nat.Inf_le this,
-  have n_win: k_cop_win G n,
-    exact nat.Inf_mem (lots_of_cops G),
-  rw k_cop_win at n_win,
-  cases n_win with CS hCS,
-  rw k_cop_win, use image_strat G h CS,
-  rw winning_strat_cop, intro RS, sorry,
-end
-
 
 def dismantling_order (G: refl_graph V) : list V → Prop
 | [] := G ≅ singleton_graph

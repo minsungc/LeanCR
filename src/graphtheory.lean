@@ -11,7 +11,7 @@ import data.nat.parity
 
 /-
 Reflexive Graphs:
-We define reflexive graphs as a refstraAlexive symmetric relation on a vertex type 'V'.
+We define reflexive graphs as a reflexive symmetric relation on a vertex type 'V'.
 -/
 open finset
 open classical
@@ -303,7 +303,7 @@ def zero_cop_robber_strategy {V: Type} [fintype V] [decidable_eq V] [inhabited V
 }
 
 lemma zero_cops_cant_win {V: Type} [fintype V] [decidable_eq V][inhabited V]  :
-  ∀ G : refl_graph V, 0<cop_number G :=
+  ∀ G : refl_graph V , 0<cop_number G :=
 begin
   intro G,
   apply nat.pos_of_ne_zero,
