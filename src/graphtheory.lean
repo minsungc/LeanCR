@@ -11,7 +11,7 @@ import data.nat.parity
 
 /-
 Reflexive Graphs:
-We define reflexive graphs as a reflexive symmetric relation on a vertex type 'V'.
+We define reflexive graphs as a refstraAlexive symmetric relation on a vertex type 'V'.
 -/
 open finset
 open classical
@@ -113,7 +113,7 @@ def cat_prod_graph {V W: Type} (G: refl_graph V) (H: refl_graph W) : refl_graph 
   end
 }
 
-def singleton_graph :refl_graph unit := complete_refl_graph unit
+def singleton_graph : refl_graph unit := complete_refl_graph unit
 
 structure graph_hom {V W: Type} (G  : refl_graph V) (H: refl_graph W) :=
 (to_fun : V → W)
@@ -181,24 +181,31 @@ Set up a cops and robber's game on a graph
 -/
 def capture {V: Type} [fintype V] {k : ℕ } (P: vector V k × V) := ∃ i, vector.nth P.1 i = P.2
 
-structure cop_strat {V: Type} [fintype V] (G: refl_graph V) (n :ℕ ) :=
-(cop_init:  vector V n)
-(cop_strat: vector V n × V  → vector V n)
-(cop_nocheat: ∀ K, capture K → cop_strat K = K.1)
-(cop_legal: ∀ i v P, G.adj (vector.nth P i) (vector.nth (cop_strat (P,v)) i))
-/-Cop doesnt sabotage himself-/
+structure pre_cop_strat {V: Type} [fintype V] (G: refl_graph V) (n :ℕ ) :=
+(init:  vector V n)
+(strat: vector V n × V  → vector V n)
+
+structure pre_rob_strat {V: Type} [fintype V] (G: refl_graph V) (n : ℕ ) :=
+(init: vector V n → V)
+(strat: vector V n × V → V)
+
+noncomputable def pre_round {V: Type} [fintype V] {G: refl_graph V} {k : ℕ } (CS: pre_cop_strat G k) (RS: pre_rob_strat G k) : ℕ → vector V k × V
+| 0 := (CS.init, RS.init (CS.init))
+| (n+1) := if even (n+1)
+           then ((pre_round n).1, RS.strat (pre_round n)) 
+           else (CS.strat (pre_round n), (pre_round n).2)
+
+structure cop_strat {V: Type} [fintype V] (G: refl_graph V) (n : ℕ ) :=
+(strat: pre_cop_strat G n)
+(nocheat: ∀ (RS: pre_rob_strat G n) (i : ℕ ), capture (pre_round strat RS i) → strat.strat (pre_round strat RS i) = (pre_round strat RS i).1)
+(legal: ∀ i v P, G.adj (vector.nth P i) (vector.nth (strat.strat (P,v)) i))
 
 structure rob_strat {V: Type} [fintype V] (G: refl_graph V) (n : ℕ ) :=
-(rob_init: vector V n → V)
-(rob_strat: vector V n× V → V)
-(rob_nocheat: ∀ K,  capture K → rob_strat K = K.2)
-(rob_legal: ∀ v P, G.adj v (rob_strat (P,v)))
+(strat: pre_rob_strat G n)
+(nocheat: ∀ (CS: pre_cop_strat G n) (i : ℕ ), capture (pre_round CS strat i) → strat.strat (pre_round CS strat i) = (pre_round CS strat i).2)
+(legal: ∀ v P, G.adj v (strat.strat (P,v)))
 
-noncomputable def round {V: Type} [fintype V] {G: refl_graph V} {k : ℕ } (CS: cop_strat G k) (RS: rob_strat G k) : ℕ → vector V k × V
-| 0 := (CS.cop_init, RS.rob_init (CS.cop_init))
-| (n+1) := if even (n+1)
-           then ((round n).1, RS.rob_strat (round n)) 
-           else (CS.cop_strat (round n), (round n).2)
+noncomputable def round {V: Type} [fintype V] {G: refl_graph V} {k : ℕ } (CS: cop_strat G k) (RS: rob_strat G k) := pre_round CS.strat RS.strat
 
 def winning_strat_cop {V: Type} [fintype V] {G: refl_graph V} {k :ℕ } 
 (CS: cop_strat G k) := 
@@ -249,68 +256,42 @@ begin
   exact hi,
 end
 
-def trivial_strategy {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : cop_strat G (fintype.card V) :=
+def pre_trivial_strat {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : pre_cop_strat G (fintype.card V) :=
+{ init := vector.of_fn (enum_elts V),
+  strat := λ x, x.1 }
+
+def trivial_strat {V: Type} [fintype V] [decidable_eq V] (G: refl_graph V) : cop_strat G (fintype.card V) :=
 {
-  cop_init :=  vector.of_fn (enum_elts V),
-  cop_strat:= λ x, x.1,
-  cop_nocheat :=
-    begin
-      intros K hyp,
-      refl,
-    end,
-  cop_legal :=
-    begin
-      intros i v L,
-      simp,
-      apply G.selfloop,
-    end,
-}
+  strat := pre_trivial_strat G,
+  nocheat := begin intros RS i cap, refl end,
+  legal := begin intros i v L, rw pre_trivial_strat, simp, apply G.selfloop end, }
 
 lemma lots_of_cops {V: Type} [fintype V] [decidable_eq V] [inhabited V] (G: refl_graph V) : 
 set.nonempty {k : ℕ | k_cop_win G k} :=
 begin
-  let strat_all := trivial_strategy G,
   have con: (fintype.card V) ∈ {k : ℕ | k_cop_win G k},
-  {
-    use strat_all,
-    rw winning_strat_cop,
-    intro RS,
-    use 0,
-    rw capture,
-    let v := (round strat_all RS 0).snd,
-    exact exists_index_vec v,
-  },
-  rwa set.nonempty_def,
-  use fintype.card V,
-  exact con,
+  { use (trivial_strat G), intro RS, use 0,
+    let v := (round (trivial_strat G) RS 0).snd,
+    exact exists_index_vec v, },
+  rwa set.nonempty_def, use fintype.card V, exact con,
 end
 
-def zero_cop_robber_strategy {V: Type} [fintype V] [decidable_eq V] [inhabited V] [decidable_eq V] (G: refl_graph V): rob_strat G 0 :=
-{
-  rob_init:= λ x, arbitrary V,
-  rob_strat := λ x, x.2,
-  rob_nocheat :=
-  begin
-    intros K C,
-    refl,
-  end,
-  rob_legal :=
-  begin
-    simp,
-    intros v H,
-    apply G.selfloop,
-  end
-}
+def pre_zcop_rob_strat {V: Type} [fintype V] [decidable_eq V] [inhabited V] [decidable_eq V] (G: refl_graph V): pre_rob_strat G 0 :=
+{ init:= λ x, arbitrary V,
+  strat := λ x, x.2,}
+
+def zcop_rob_strat {V: Type} [fintype V] [decidable_eq V] [inhabited V] [decidable_eq V] (G: refl_graph V): rob_strat G 0 :=
+{ strat := pre_zcop_rob_strat G, 
+  nocheat := begin intros K i cap, refl, end,
+  legal := begin intros v P, rw pre_zcop_rob_strat, simp, exact G.selfloop v end}
 
 lemma zero_cops_cant_win {V: Type} [fintype V] [decidable_eq V][inhabited V]  :
-  ∀ G : refl_graph V , 0<cop_number G :=
+  ∀ G : refl_graph V, 0 < cop_number G :=
 begin
-  intro G,
-  apply nat.pos_of_ne_zero,
-  intro zero_cops,
+  intro G, apply nat.pos_of_ne_zero, intro zero_cops,
   cases nat.Inf_eq_zero.mp zero_cops with H1 H2,
   { cases H1 with CS WCS,
-    specialize WCS (zero_cop_robber_strategy G),
+    specialize WCS (zcop_rob_strat G),
     rcases WCS with ⟨n, ⟨x, _⟩⟩,
     exact fin.elim0 x},
   cases lots_of_cops G with x h,
@@ -318,25 +299,17 @@ begin
   exact set.not_mem_empty _ h,
 end
 
+def pre_complete_strat (V: Type) [fintype V] [decidable_eq V] [inhabited V] : pre_cop_strat (complete_refl_graph V) 1 :=
+{ init  := ⟨[arbitrary V], rfl⟩, strat := λ x, ⟨[x.2], rfl⟩,}
+
 def complete_strategy (V: Type) [fintype V] [decidable_eq V] [inhabited V] : cop_strat (complete_refl_graph V) 1 :=
-{ cop_init  := ⟨[arbitrary V], rfl⟩,
-  cop_strat := λ x, ⟨[x.2], rfl⟩,
-  cop_nocheat :=
-    begin
-      intros K hyp,
-      rw capture at hyp,
-      cases hyp with i hyp',
-      have this: i=0,
-        simp,
-      rw this at hyp',
-      refine vector.ext _,
-      intro m,
-      have this: m=0,
-        simp,
-      rwa this,
-      rwa hyp', refl,
-    end,
-  cop_legal := λ i v p, trivial }
+{ strat := pre_complete_strat V,
+  nocheat := begin
+    intros K hyp cap, conv {congr, congr, rw pre_complete_strat}, simp, refine vector.ext _,
+    intro m, have : m=0, simp, rw this, clear this m, simp, 
+    rw capture at cap, cases cap with i cap, have : i=0, simp, rw this at cap, clear this i,
+    simp at cap, rw cap, refl, end,
+  legal := λ i v p, trivial }
 
 lemma complete_refl_graph_cop_win (V: Type) [fintype V][decidable_eq V] [inhabited V] : cop_win_graph (complete_refl_graph V) :=
 begin
@@ -346,7 +319,7 @@ begin
   { let CW_strat := complete_strategy V,
     have winning : winning_strat_cop CW_strat,
     { intro RS, use 1, use 0,
-      rw round, rw round, simp, refl, },
+      rw round, rw pre_round, simp, refl, },
     simp, use CW_strat, exact winning, },
   have leq: Inf {k : ℕ | k_cop_win (complete_refl_graph V) k} ≤ 1,
     exact nat.Inf_le CW,
@@ -368,45 +341,51 @@ vector.of_fn (λ i, va.nth (fin.cast_le ge i))
 def ge_cs_strat_fn (strat: vector V a × V → vector V a) (ge: a ≤ b ): vector V b × V → vector V b :=
   λ x, vector.of_fn (λ i, if h : ↑i < a then (strat ⟨vec_remove x.1 ge, x.2⟩).nth ⟨_, h⟩  else x.1.nth i )
 
-def ge_cop_strat {G: refl_graph V} (CS: cop_strat G a) (ge: a ≤ b) : cop_strat G b :=
-{ cop_init := ge_cs_strat_init CS.cop_init,
-  cop_strat := ge_cs_strat_fn CS.cop_strat ge,
-  cop_nocheat :=
-    begin
-      intros K assm, 
-      suffices :  ∀ (m : fin b), (ge_cs_strat_fn CS.cop_strat ge K).nth m = K.fst.nth m, exact vector.ext this,
-      intro m, rw [ge_cs_strat_fn], simp, intro h, 
-      let x := CS.cop_nocheat (vec_remove K.fst ge, K.snd), simp at x,
-      have : (vec_remove K.fst ge).nth ⟨↑m, h⟩ =  K.fst.nth m, rw vec_remove, simp,
-      rw this.symm, sorry,
-    end,
-  cop_legal :=
-    begin
-      intros i v P, rw ge_cs_strat_fn, simp, by_cases h: ¬↑i < a,
+def pre_ge_cop_strat (G: refl_graph V) (CS: cop_strat G a) (ge: a ≤ b) : pre_cop_strat G b :=
+{ init := ge_cs_strat_init CS.strat.init,
+  strat := ge_cs_strat_fn CS.strat.strat ge}
+
+--suffices :  ∀ (m : fin b), (ge_cs_strat_fn CS.cop_strat ge K).nth m = K.fst.nth m, exact vector.ext this,
+def ge_cop_strat (G: refl_graph V) (CS: cop_strat G a) (ge: a ≤ b) : cop_strat G b :=
+{ strat := pre_ge_cop_strat G CS ge,
+  nocheat := begin
+    intros RS i cap,
+    conv {congr, congr, rw pre_ge_cop_strat}, simp,
+    suffices :  ∀ (m : fin b), (ge_cs_strat_fn CS.strat.strat ge (pre_round (pre_ge_cop_strat G CS ge) RS i)).nth m = (pre_round (pre_ge_cop_strat G CS ge) RS i).fst.nth m, exact vector.ext this,
+    intro m, rw [ge_cs_strat_fn], simp, intro h, sorry, end,
+  legal := begin
+      intros i v P, rw pre_ge_cop_strat, simp, rw ge_cs_strat_fn, simp, by_cases h: ¬↑i < a,
       rw dif_neg h, exact G.selfloop (P.nth i),
       simp at h, rw dif_pos h, 
       have : P.nth i = (vec_remove P ge).nth ⟨↑i, h⟩, rw vec_remove, simp, rw this,
-      exact CS.cop_legal ⟨↑i, h⟩ v (vec_remove P ge),
+      exact CS.legal ⟨↑i, h⟩ v (vec_remove P ge),
     end }
 
-def ge_rob_init {G: refl_graph V} (RS : rob_strat G b) : vector V a → V := λ v, RS.rob_init (ge_cs_strat_init v)
+def ge_rob_init (G: refl_graph V) (RS : rob_strat G b) : vector V a → V := λ v, RS.strat.init (ge_cs_strat_init v)
 
-def ge_rob_fn {G: refl_graph V} (RS: rob_strat G b) : (vector V a) × V → V := 
- λ x, RS.rob_strat ⟨ge_cs_strat_init x.1, x.2⟩ 
+def ge_rob_fn (G: refl_graph V) (RS: rob_strat G b) : (vector V a) × V → V := 
+ λ x, RS.strat.strat ⟨ge_cs_strat_init x.1, x.2⟩ 
 
-def ge_rob_strat {G: refl_graph V} (RS: rob_strat G b) (ge: a ≤ b) : rob_strat G a := 
-{ rob_init := ge_rob_init RS,
-  rob_strat := ge_rob_fn RS,
-  rob_legal := begin
-  intros v P, rw ge_rob_fn, simp,
-  exact RS.rob_legal v (ge_cs_strat_init P), end,
-  rob_nocheat := begin
-  intros K cap, rw ge_rob_fn, simp,
-  suffices : capture (ge_cs_strat_init K.fst, K.snd), 
-  exact RS.rob_nocheat (ge_cs_strat_init K.fst, K.snd) this,
-  rw capture, cases cap with i cap, use fin.cast_le ge i,
-  rw ge_cs_strat_init, simp, rw if_pos (fin.is_lt i), exact cap,
+def pre_ge_rob_strat (G: refl_graph V) (RS: rob_strat G b) (ge: a ≤ b) : pre_rob_strat G a :=
+{ init := ge_rob_init G RS, strat := ge_rob_fn G RS}
+
+def ge_rob_strat (G: refl_graph V) (RS: rob_strat G b) (ge: a ≤ b) : rob_strat G a := 
+{ strat := pre_ge_rob_strat G RS ge,
+  legal := begin
+  intros i v P, rw pre_ge_rob_strat, rw ge_rob_fn, simp,
+  let x:= RS.legal (fin.cast_le ge i) v (ge_cs_strat_init P), 
+  have : ((ge_cs_strat_init P).nth (fin.cast_le ge i)) = P.nth i,
+    rw ge_cs_strat_init, simp, intro le, exfalso, let le2 := i.2, rw not_lt.symm at le,
+    contradiction,
+  rw this.symm, exact x,
+  end,
+  nocheat := begin
+    intros CS i cap, conv {congr, congr, rw pre_ge_rob_strat}, simp, rw ge_rob_fn, simp,
+    set K := (pre_round CS (pre_ge_rob_strat G RS ge) i), 
+    suffices : capture (ge_cs_strat_init K.fst, K.snd), 
+    sorry, sorry, sorry,
   end }
+
 
 lemma copnumber_upwards_closed {V: Type}{G: refl_graph V}  [fintype V] [decidable_eq V] [inhabited V] : ∀ a b : ℕ, a ≤ b → a ∈ {k : ℕ | k_cop_win G k} → b ∈ {k : ℕ | k_cop_win G k} :=
 begin

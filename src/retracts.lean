@@ -57,11 +57,8 @@ theorem val_cing_vtx_subtype {v: V} {G: refl_graph V} (h: corner_vtx G v) : (cin
 -- from type V to subtype {w: V // w ≠ v}, for cornering vtxs
 def not_corner_vtx_subtype (v: V) (G: refl_graph V) (h: v ≠ c) : {w: V // w ≠ c} := ⟨v,h⟩
 
-def has_retract (G: refl_graph V)  : Prop := 
+def has_retract  (G: refl_graph V)  : Prop := 
 ∃ f: graph_hom G (ind_subgraph_one_vtx c G), ∀ v ≠ c, v = f.to_fun(v)
-
--- somehow this doesn't work
-lemma K1_no_retract : ¬ has_retract (singleton_graph) :=
 
 def retract_fun (G: refl_graph V) (h : corner_vtx G c) :
 V → {w: V // w ≠ c} := λ v, if eq: v = c then cing_vtx_subtype h else ⟨v,eq⟩
@@ -213,7 +210,7 @@ def image_strat {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G 
 
 variables {n: ℕ} (G: refl_graph V) (RS: rob_strat (ind_subgraph_one_vtx c G) n)
 
-def rob_coe_init_fn (h: corner_vtx G c) : vector V n → V :=
+def rob_coe_init_fn (h: corner_vtx G c) : vector V n → V := 
 λ x, RS.rob_init (vector.map (corner_retract G h).to_fun x)
 
 def rob_coe_init_fn_restr (h: corner_vtx G c) : ∀ x, (rob_coe_init_fn G RS h) x ≠ c :=
@@ -237,8 +234,11 @@ def rob_strat_coe {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (RS: rob_strat 
   rob_strat := rob_coe_strat_fn G RS h,
   rob_nocheat :=
   begin
-    intros K cap, rw rob_coe_strat_fn, simp, rw cr_pos_to_retract, rw corner_retract, simp,
-    let RS_nocheat := RS.rob_nocheat (cr_pos_to_retract G h K), sorry,
+    intros K cap, rw rob_coe_strat_fn, simp, 
+    have neqc: K.2 ≠ c, sorry,
+    suffices : RS.rob_strat (cr_pos_to_retract G h K) = ⟨ K.snd, neqc⟩,
+      exact subtype.ext_iff_val.1 this,
+    exact RS.rob_nocheat (cr_pos_to_retract G h K), 
   end,
   rob_legal :=
   begin

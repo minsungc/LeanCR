@@ -104,36 +104,26 @@ def rob_init_fn  (G: refl_graph V) : vector V 1 → V :=
  (if g: ∃ w, ¬ G.adj x.head w then some g else some h)
  else x.head
 
+def pre_smart_robber (G: refl_graph V) : pre_rob_strat G 1 :=
+{ init := rob_init_fn G, strat := rob_strat_fn G }
+
 def smart_robber (G: refl_graph V) : rob_strat G 1
 :=
-{ rob_init:= rob_init_fn G,
-  rob_strat:= λ x , if h : ∃ w, G.adj x.2 w ∧ ¬ G.adj x.1.head w then some h else x.2,
-  rob_nocheat:=
+{ strat := pre_smart_robber G,
+  nocheat:=
   begin
-    intros K hyp,
+    intros CS i cap, conv {congr, congr, rw pre_smart_robber}, simp,
+    set K := (pre_round CS (pre_smart_robber G) i),
     have hyp' : ¬∃ w, G.adj K.2 w ∧ ¬ G.adj K.1.head w,
     { by_contradiction sps,
-      rw capture at hyp,
-      cases hyp with w hw,
-      have this: w=0,
-        simp,
-      rw this at hw,
-      simp at hw,
-      rw hw at sps,
-      cases sps with y hy,
-      exact (and_not_self (G.adj K.snd y)).mp hy,
-    },
-    simp,
-    by_contradiction K', simp at K', cases K' with x K',cases K' with h' K',
+      cases cap with w hw, have this: w=0, simp, rw this at hw, simp at hw,
+      rw hw at sps, cases sps with y hy, exact (and_not_self (G.adj K.snd y)).mp hy, },
+    rw rob_strat_fn, simp, 
+    by_contradiction K', push_neg at K', cases K' with x K', cases K' with h' K',
     push_neg at hyp', specialize hyp' x, specialize hyp' h'.1, have h'' : ¬G.adj K.fst.head x, exact h'.2, 
     contradiction,
   end,
-  rob_legal:= 
-  begin
-    intros v P,
-    let J := (P,v),
-    exact adj G J,
-  end,
+  legal:= begin intros v P, exact adj G (P, v), end,
 }
 
 --If the cop strategy is winning, the minimum round of capture is always achieved
@@ -141,11 +131,7 @@ theorem wcs_min_rounds {G: refl_graph V} {k :ℕ }
   (CS: cop_strat G k) :
   winning_strat_cop CS → ∀ RS: rob_strat G k, ∃ n:ℕ , n = Inf{n:ℕ | capture (round CS RS n)} :=
 begin
-  intro h,
-  intro RS,
-  rw winning_strat_cop at h,
-  specialize h RS,
-  simp,
+  intro h, intro RS, rw winning_strat_cop at h, specialize h RS, simp,
 end
 
 --If the cop captures at some round n, then he captures for all m >= n
@@ -154,17 +140,17 @@ begin
   intros k1 k2 le inc,
   suffices : ∀ k1, k1 ∈ {n:ℕ | capture (round CS RS n)} → k1.succ ∈ {n:ℕ | capture (round CS RS n)}, { exact nat.le_rec_on le this inc,}, clear inc le k1 k2,
   intros k1 hyp, simp at hyp, simp, 
-  cases k1, rw [capture, round], simp, rw [capture, round] at hyp, simp at hyp, 
-  let nocheat := CS.cop_nocheat (round CS RS 0) hyp,
-  cases hyp with m hyp, 
-  use m, rw [round, hyp.symm] at nocheat, rw [round, hyp.symm, nocheat],
+  cases k1, rw [capture, round], simp,
+  let nocheat := CS.nocheat RS.strat 0 hyp,
+  rw round at hyp, rw capture at hyp, cases hyp with m hyp', rw pre_round at hyp', simp at hyp',
+  use m, rw [pre_round, hyp'.symm] at nocheat, rw pre_round, simp, rw pre_round, simp, rw hyp'.symm, rw nocheat,
   cases (nat.even_or_odd k1.succ), 
   rw [nat.even_iff_not_odd, odd_succ.symm, nat.odd_iff_not_even] at h,
-  let nocheat := CS.cop_nocheat (round CS RS k1.succ) hyp,
-  cases hyp with m hyp, use m, rw [round, if_neg h, nocheat, hyp], 
+  let nocheat := CS.nocheat RS.strat k1.succ hyp,
+  cases hyp with m hyp, use m, rw [round, pre_round, if_neg h, nocheat], simp, rw round at hyp, exact hyp, 
   rw [nat.odd_iff_not_even, nat.even_succ.symm] at h,
-  let nocheat := RS.rob_nocheat (round CS RS k1.succ) hyp,
-  cases hyp with m hyp, use m, rw [round, if_pos h, nocheat, hyp],
+  let nocheat := RS.nocheat CS.strat k1.succ hyp,
+  cases hyp with m hyp, use m, rw [round, pre_round, if_pos h, nocheat], rw round at hyp, exact hyp,
 end
 
 --Simple lemma for reasoning
@@ -190,7 +176,7 @@ begin
  cases (nat.even_or_odd n.succ.succ),
  -- if n+2 is even
  rw nat.even_succ at h, 
- conv { to_rhs, rw round, }, rw if_neg h,
+ conv { to_rhs, rw round, rw pre_round}, rw if_neg h,
 -- if n+2 is odd
  rw [odd_succ, nat.odd_iff_not_even, nat.succ_eq_add_one] at h, push_neg at h, 
  conv { to_rhs, rw round, }, rw if_pos h, simp, 
