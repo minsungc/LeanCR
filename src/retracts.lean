@@ -161,29 +161,66 @@ def corner_retract (G: refl_graph V) (h : corner_vtx G c): graph_hom G (ind_subg
   end
 }
 
-def image_strat_init {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G n) : vector {w // w ≠ c} n := vector.map (corner_retract G h).to_fun CS.cop_init
+-- goal: to prove that a retract H of a graph G has cop_number H ≤ cop_number G.
+-- the standard proof method of this is to "simulate two games played on G and H where the cop strategy is the image_strat and the robber strategy on G is restricted to H."
+
+-- The image strategy of a cop is a strategy played on induced_subgraph G c. 
+-- The idea is that the cop will behave the same way as he does on G, except when he is to move to c he will move to the cornering vtx instead. This is well-defined because the cornering vtx is adjacent to all the neighbors of c. 
+
+def image_strat_init {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G n) : vector {w // w ≠ c} n := vector.map (corner_retract G h).to_fun CS.strat.init
 
 def cr_pos_to_retract {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (s: vector V n × V) :  vector {w // w ≠ c} n × {w // w ≠ c} := (vector.map (corner_retract G h).to_fun s.1, (corner_retract G h).to_fun s.2)
 
 def cr_pos_from_retract {n: ℕ} (G: refl_graph V)(h: corner_vtx G c) (s: vector {w // w ≠ c} n × {w // w ≠ c}) : vector V n × V  := (vector.map (λ t, ↑t) s.1, s.2)
 
-def image_strat_fun {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G n) : vector {w // w ≠ c} n × {w // w ≠ c} → vector {w // w ≠ c} n := λ s, vector.map (corner_retract G h).to_fun (CS.cop_strat (cr_pos_from_retract G h s))
+def image_strat_fun {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G n) : vector {w // w ≠ c} n × {w // w ≠ c} → vector {w // w ≠ c} n := λ s, vector.map (corner_retract G h).to_fun (CS.strat.strat (cr_pos_from_retract G h s))
+
+def pre_image_strat {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G n)
+: pre_cop_strat (ind_subgraph_one_vtx c G) n :=
+{ init := image_strat_init G h CS, strat := image_strat_fun G h CS}
+
+-- Now we need to coerce a robber strategy on the induced subgraph to a robber strategy on the graph itself. The idea is to have the robber move as if they were still playing against a cop strategy on the induced subgraph.
+
+def rob_coe_init_fn {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (RS: pre_rob_strat (ind_subgraph_one_vtx c G) n): vector V n → V := 
+λ x, RS.strat.init (vector.map (corner_retract G h).to_fun x)
+
+def rob_coe_init_fn_restr {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (RS: pre_rob_strat (ind_subgraph_one_vtx c G) n) : ∀ x, (rob_coe_init_fn G h RS) x ≠ c :=
+begin
+  intro x, rw rob_coe_init_fn, simp,
+  exact (RS.strat.init (vector.map (corner_retract G h).to_fun x)).2,
+end
+
+def rob_coe_strat_fn {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (RS: rob_strat (ind_subgraph_one_vtx c G) n) : vector V n × V → V := λ s, RS.strat.strat (cr_pos_to_retract G h s)
+
+def rob_coe_strat_fn_restr {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (RS: rob_strat (ind_subgraph_one_vtx c G) n) : ∀ s, (rob_coe_strat_fn G h RS) s ≠ c :=
+begin
+  intro s, rw rob_coe_strat_fn, simp,
+  exact (RS.strat.strat (cr_pos_to_retract G h s)).2,
+end
+
+def pre_rob_coe_strat {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (RS: rob_strat (ind_subgraph_one_vtx c G) n) : pre_rob_strat G n :=
+{ init := rob_coe_init_fn G h RS, strat := rob_coe_strat_fn G h RS}
+
+-- rw image_strat_fun, simp, 
+--     have : capture (cr_pos_from_retract G h K),
+--       rw capture, cases cap with i cap, use i, rw cr_pos_from_retract, simp, 
+--       by_contradiction, let nocap := subtype.ne_of_val_ne h, contradiction,
+--     let G_nocheat := CS.cop_nocheat (cr_pos_from_retract G h K) this,
+--     rw corner_retract, simp, rw G_nocheat, rw cr_pos_from_retract, simp,
+--     let map_comp := vec_map_comp coe (retract_fun G h) K.1,
+--     rw map_comp, exact retract_fn_noncorner_vtx_vect G h K.1,
 
 def image_strat {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G n)
 : cop_strat (ind_subgraph_one_vtx c G) n :=
-{
-  cop_init := image_strat_init G h CS,
-  cop_strat := image_strat_fun G h CS,
-  cop_nocheat :=
+{ strat := pre_image_strat G h CS,
+  nocheat :=
   begin
-    intros K cap, rw image_strat_fun, simp, 
+    intros RS i cap, conv {congr, congr, rw pre_image_strat}, simp,
+    rw image_strat_fun, simp, 
+    set K := (pre_round (pre_image_strat G h CS) RS i),
     have : capture (cr_pos_from_retract G h K),
-      rw capture, cases cap with i cap, use i, rw cr_pos_from_retract, simp, 
-      by_contradiction, let nocap := subtype.ne_of_val_ne h, contradiction,
-    let G_nocheat := CS.cop_nocheat (cr_pos_from_retract G h K) this,
-    rw corner_retract, simp, rw G_nocheat, rw cr_pos_from_retract, simp,
-    let map_comp := vec_map_comp coe (retract_fun G h) K.1,
-    rw map_comp, exact retract_fn_noncorner_vtx_vect G h K.1,
+      rw capture, cases cap with i cap, use i, rw cr_pos_from_retract, simp, exact subtype.coe_inj.2 cap,
+    let G_nocheat := CS.nocheat (pre_rob_coe_strat G h RS) i,
   end,
   cop_legal :=
   begin
@@ -204,28 +241,6 @@ def image_strat {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (CS: cop_strat G 
     rw this.symm at cing_adj, exact rgraph_adj_symm.1 cing_adj,
   end,
 }
-
--- goal: to prove that a retract H of a graph G has cop_number H ≤ cop_number G.
--- the standard proof method of this is to "simulate two games played on G and H where the cop strategy is the image_strat and the robber strategy on G is restricted to H."
-
-variables {n: ℕ} (G: refl_graph V) (RS: rob_strat (ind_subgraph_one_vtx c G) n)
-
-def rob_coe_init_fn (h: corner_vtx G c) : vector V n → V := 
-λ x, RS.rob_init (vector.map (corner_retract G h).to_fun x)
-
-def rob_coe_init_fn_restr (h: corner_vtx G c) : ∀ x, (rob_coe_init_fn G RS h) x ≠ c :=
-begin
-  intro x, rw rob_coe_init_fn, simp,
-  exact (RS.rob_init (vector.map (corner_retract G h).to_fun x)).2,
-end
-
-def rob_coe_strat_fn (h: corner_vtx G c) : vector V n × V → V := λ s, RS.rob_strat (cr_pos_to_retract G h s)
-
-def rob_coe_strat_fn_restr (h: corner_vtx G c) : ∀ s, (rob_coe_strat_fn G RS h) s ≠ c :=
-begin
-  intro s, rw rob_coe_strat_fn, simp,
-  exact (RS.rob_strat (cr_pos_to_retract G h s)).2,
-end
 
 -- coercing a robber strat on a graph with corner removed back to the original graph.
 def rob_strat_coe {n: ℕ} (G: refl_graph V) (h: corner_vtx G c) (RS: rob_strat (ind_subgraph_one_vtx c G) n) : rob_strat G n :=
